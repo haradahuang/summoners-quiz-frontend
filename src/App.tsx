@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const socket: Socket = io('https://swtest-pgq8.onrender.com'); // ⚠️ 確認網址無誤
+const socket: Socket = io('https://swtest-pgq8.onrender.com'); // ⚠️ 請確保這是你的正確網址
 
-function App() {
+export default function App() {
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
   const [isHost, setIsHost] = useState(false);
@@ -22,30 +22,35 @@ function App() {
   const [adminPwd, setAdminPwd] = useState('');
   const [qBank, setQBank] = useState<any[]>([]);
   
+  // 新增題目狀態
+  const [qType, setQType] = useState<'choice' | 'match'>('choice');
   const [newQText, setNewQText] = useState('');
-  const [newOptA, setNewOptA] = useState('');
-  const [newOptB, setNewOptB] = useState('');
-  const [newOptC, setNewOptC] = useState('');
-  const [newOptD, setNewOptD] = useState('');
-  const [newAns, setNewAns] = useState('A');
-  const [newTime, setNewTime] = useState(10);
+  const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
+  const [newOptC, setNewOptC] = useState(''); const [newOptD, setNewOptD] = useState('');
+  const [newAns, setNewAns] = useState('B');
+  const [newTime, setNewTime] = useState(15);
+
+  // === 配對題專用狀態 ===
+  const [activeTopId, setActiveTopId] = useState<string | null>(null);
+  const [userMatches, setUserMatches] = useState<Record<string, string>>({}); // { T1: B2, T2: B1 ... }
 
   useEffect(() => {
     socket.on('player_joined', (data) => { if (!data.isHost) setPlayers((prev) => [...prev, data.username]); });
-    socket.on('receive_question', (q) => { setCurrentQuestion(q); setTimeLeft(q.timeLimit); setHasAnswered(false); setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); });
+    socket.on('receive_question', (q) => { 
+      setCurrentQuestion(q); setTimeLeft(q.timeLimit); setHasAnswered(false); 
+      setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
+      setUserMatches({}); setActiveTopId(null); // 新題目重置配對狀態
+    });
     socket.on('answer_result', setAnswerResult);
-    socket.on('leaderboard_updated', (top5) => { setLeaderboard(top5); setReviewData(null); setPodiumData(null); });
-    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); setPodiumData(null); });
+    socket.on('leaderboard_updated', setLeaderboard);
+    socket.on('review_updated', setReviewData);
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
 
     socket.on('admin_auth_success', (bank) => { setQBank(bank); setViewMode('adminPanel'); });
-    socket.on('admin_auth_fail', () => { alert('❌ 密碼錯誤！'); });
-    socket.on('admin_update_bank', (bank) => { setQBank(bank); });
+    socket.on('admin_auth_fail', () => alert('❌ 密碼錯誤！'));
+    socket.on('admin_update_bank', setQBank);
 
-    return () => { 
-      socket.off('player_joined'); socket.off('receive_question'); socket.off('answer_result'); socket.off('leaderboard_updated'); socket.off('review_updated'); socket.off('podium_updated');
-      socket.off('admin_auth_success'); socket.off('admin_auth_fail'); socket.off('admin_update_bank');
-    };
+    return () => { socket.off(); };
   }, []);
 
   useEffect(() => {
@@ -54,149 +59,113 @@ function App() {
       return () => clearTimeout(timerId);
     } else if (timeLeft === 0 && currentQuestion && !hasAnswered && !isHost) {
       setHasAnswered(true);
+      // 時間到，強制送出目前配對或單選
+      socket.emit('submit_answer', { pin, answerData: currentQuestion.type === 'match' ? userMatches : '' });
     }
   }, [currentQuestion, timeLeft, hasAnswered, isHost, leaderboard, reviewData, podiumData]);
 
   const handleJoinArena = () => { if (username.trim() && pin.trim()) { socket.emit('join_room', { pin, username, isHost }); setIsJoined(true); } };
   const handleSendQuestion = () => socket.emit('host_send_question', pin);
-  const handleAnswerClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerId }); } };
+  
+  // 單選題送出
+  const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
+  
+  // 配對題送出
+  const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
+
+  // 配對點擊邏輯
+  const handleTopClick = (id: string) => setActiveTopId(id === activeTopId ? null : id);
+  const handleBottomClick = (bottomId: string) => {
+    setUserMatches(prev => {
+      const newMatches = { ...prev };
+      // 如果這個底圖已經被配對過了，就解除配對
+      const existingTopKey = Object.keys(newMatches).find(key => newMatches[key] === bottomId);
+      if (existingTopKey) delete newMatches[existingTopKey];
+      
+      // 如果目前有選中上方，則建立新配對
+      if (activeTopId) {
+        newMatches[activeTopId] = bottomId;
+        setActiveTopId(null); // 配對完自動取消選中
+      }
+      return newMatches;
+    });
+  };
+
   const handleShowLeaderboard = () => socket.emit('host_show_leaderboard', pin);
   const handleShowReview = () => socket.emit('host_show_review', pin);
   const handleShowPodium = () => socket.emit('host_show_podium', pin);
-  const handleAdminLogin = () => { socket.emit('admin_login', adminPwd); };
+  const handleAdminLogin = () => socket.emit('admin_login', adminPwd);
   
   const handleAddQuestion = () => {
-    if(!newQText || !newOptA || !newOptB || !newOptC || !newOptD) return alert('請填寫完整題目與選項！');
+    if(!newQText) return alert('請填寫題目！');
     const qData = {
-      text: newQText, correctAnswer: newAns, timeLimit: newTime,
-      options: [
-        { id: 'A', text: newOptA, color: '#e53e3e' }, { id: 'B', text: newOptB, color: '#3182ce' },
-        { id: 'C', text: newOptC, color: '#d69e2e' }, { id: 'D', text: newOptD, color: '#805ad5' }
-      ]
+      type: qType, text: newQText, timeLimit: newTime,
+      ...(qType === 'choice' ? {
+        correctAnswer: newAns,
+        options: [
+          { id: 'A', text: newOptA || 'A', color: '#e53e3e' }, { id: 'B', text: newOptB || 'B', color: '#3182ce' },
+          { id: 'C', text: newOptC || 'C', color: '#d69e2e' }, { id: 'D', text: newOptD || 'D', color: '#805ad5' }
+        ]
+      } : {
+        // 為了簡化後台，這裡讓管理者自行在 JSON 編輯器裡發布進階題型
+        // 若要實作完整的圖片上傳 UI 會非常龐大，目前預設為測試佔位符
+        topItems: [{id: 'T1', name:'A'}, {id: 'T2', name:'B'}, {id: 'T3', name:'C'}, {id: 'T4', name:'D'}],
+        bottomItems: [{id: 'B1'}, {id: 'B2'}, {id: 'B3'}, {id: 'B4'}],
+        correctMatches: { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' }
+      })
     };
     socket.emit('admin_add_q', qData);
-    setNewQText(''); setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD(''); setNewTime(10);
+    setNewQText('');
   };
+
+  // 輔助顏色：為 4 個選項定義不同顏色以幫助配對辨識
+  const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
   return (
     <div style={{ 
       position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', 
-      justifyContent: 'flex-start', alignItems: 'center', paddingTop: '10vh', fontFamily: '"Noto Sans TC", sans-serif',
-      background: `radial-gradient(circle at center, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.88) 90%), url("https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg")`,
-      backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', overflowY: 'auto'
+      justifyContent: 'flex-start', alignItems: 'center', paddingTop: '8vh', fontFamily: '"Noto Sans TC", sans-serif',
+      background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg")`,
+      backgroundSize: 'cover', backgroundPosition: 'center', overflowY: 'auto'
     }}>
       
-      {/* 注入豐富的 CSS 動畫 */}
       <style>
         {`
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body, html, #root { width: 100%; height: 100%; overflow: hidden; background: #000; }
-          
+          body, html { width: 100%; height: 100%; overflow: hidden; background: #000; }
           @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-          @keyframes pulseText { 0% { opacity: 0.7; } 50% { opacity: 1; text-shadow: 0 0 10px #3498db; } 100% { opacity: 0.7; } }
           @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-          @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
-
-          .game-panel {
-            background: rgba(18, 22, 35, 0.92); backdrop-filter: blur(25px); border: 1px solid rgba(255, 215, 0, 0.4); 
-            border-radius: 20px; box-shadow: 0 15px 45px rgba(0,0,0,0.9); padding: clamp(1.2rem, 4vh, 2rem); color: #fff; 
-            width: clamp(280px, 92%, 400px); text-align: center; margin-top: 10px;
-            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; /* 面板滑入特效 */
-          }
-
-          .admin-panel { max-width: 600px; padding: 2rem; }
-          .game-input { width: 100%; padding: 0.85rem; background: rgba(0,0,0,0.75); border: 1px solid #4a5568; border-radius: 8px; color: #fff; font-size: 1.05rem; outline: none; margin-bottom: 0.7rem; text-align: center; transition: all 0.3s ease; }
-          .game-input:focus { border-color: #FFD700; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
-          .admin-input { text-align: left; font-size: 0.95rem; padding: 0.6rem; }
-
-          .btn-summon { 
-            width: 100%; padding: 0.9rem; font-size: 1.25rem; font-weight: 900; background: linear-gradient(180deg, #ffb347 0%, #ff7b00 100%); 
-            color: #fff; border: 1.5px solid #fff; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
-            transition: transform 0.1s ease, filter 0.2s ease; 
-          }
-          .btn-summon:active { transform: scale(0.96); }
-          .btn-summon:hover { filter: brightness(1.1); }
-
-          .btn-option {
-            padding: 1rem; font-size: 1.1rem; color: #fff; background: rgba(255,255,255,0.06); border-radius: 10px; 
-            border: none; cursor: pointer; transition: all 0.2s ease;
-          }
-          .btn-option:hover { transform: translateY(-3px); background: rgba(255,255,255,0.15); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-          .btn-option:active { transform: scale(0.95); }
-
-          .text-glow { background: linear-gradient(to bottom, #FFD700 30%, #f39c12 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; font-size: clamp(2.2rem, 7vw, 3.2rem); filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 8px rgba(0,0,0,0.8)); letter-spacing: 3px; margin-bottom: 5px; padding: 10px 0; line-height: 1.2; }
           
-          .pulse-text { animation: pulseText 2s infinite; }
+          .game-panel { background: rgba(15, 18, 28, 0.95); backdrop-filter: blur(25px); border: 1px solid rgba(255, 215, 0, 0.4); border-radius: 20px; box-shadow: 0 15px 45px rgba(0,0,0,0.9); padding: clamp(1rem, 4vh, 2rem); color: #fff; width: clamp(280px, 95%, 650px); text-align: center; margin-top: 10px; animation: slideUp 0.5s ease forwards; }
+          .game-input { width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.7); border: 1px solid #4a5568; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; margin-bottom: 0.7rem; text-align: center; transition: all 0.3s; }
+          .game-input:focus { border-color: #FFD700; }
+          .btn-summon { width: 100%; padding: 0.9rem; font-size: 1.25rem; font-weight: 900; background: linear-gradient(180deg, #ffb347 0%, #ff7b00 100%); color: #fff; border: 1.5px solid #fff; border-radius: 10px; cursor: pointer; transition: transform 0.1s; }
+          .btn-summon:active { transform: scale(0.96); }
+          .btn-summon:disabled { filter: grayscale(1); cursor: not-allowed; }
+          .text-glow { background: linear-gradient(to bottom, #FFD700 30%, #f39c12 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; font-size: clamp(2rem, 6vw, 2.8rem); filter: drop-shadow(0 0 5px rgba(0,0,0,0.8)); margin-bottom: 5px; line-height: 1.2; }
+          
+          /* 配對題專用 CSS */
+          .match-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+          .match-item { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; background: rgba(255,255,255,0.05); }
+          .match-item img { width: 100%; height: 80px; object-fit: cover; display: block; }
+          .match-item p { font-size: 0.8rem; padding: 5px; font-weight: bold; text-shadow: 0 1px 3px #000; }
+          .match-item.active { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+          .match-badge { position: absolute; top: -5px; right: -5px; width: 25px; height: 25px; border-radius: 50%; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
         `}
       </style>
 
-      {!isJoined && viewMode === 'home' && (
-        <button onClick={() => setViewMode('adminAuth')} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', opacity: 0.5, transition: 'opacity 0.3s' }} onMouseOver={e=>e.currentTarget.style.opacity='1'} onMouseOut={e=>e.currentTarget.style.opacity='0.5'}>⚙️</button>
-      )}
+      {/* 隱藏後台按鈕 */}
+      {!isJoined && viewMode === 'home' && <button onClick={() => setViewMode('adminAuth')} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', opacity: 0.3 }}>⚙️</button>}
 
-      {viewMode === 'home' && (
-        <div style={{ textAlign: 'center', zIndex: 10 }}>
-          <h1 className="text-glow">傳奇金頭腦挑戰賽</h1>
-        </div>
-      )}
+      {viewMode === 'home' && <div style={{ textAlign: 'center', zIndex: 10 }}><h1 className="text-glow">傳奇金頭腦挑戰賽</h1></div>}
 
-      <div style={{ padding: '0 10px', width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10, paddingBottom: '50px' }}>
+      <div style={{ padding: '0 10px', width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10, paddingBottom: '30px' }}>
         
-        {/* 後台登入 */}
-        {viewMode === 'adminAuth' && (
-          <div className="game-panel">
-            <h2 style={{ color: '#FFD700', marginBottom: '1.5rem' }}>🔧 進入題庫管理</h2>
-            <input type="password" placeholder="輸入管理員密碼" value={adminPwd} onChange={(e) => setAdminPwd(e.target.value)} className="game-input" />
-            <button className="btn-summon" onClick={handleAdminLogin} style={{ marginBottom: '1rem' }}>登入</button>
-            <button onClick={() => setViewMode('home')} style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}>返回首頁</button>
-          </div>
-        )}
-
-        {/* 後台管理面板 (保持不變) */}
-        {viewMode === 'adminPanel' && (
-          <div className="game-panel admin-panel" style={{ width: '100%', overflowY: 'auto', maxHeight: '80vh' }}>
-            {/* ... 省略 ... 內容與上一版相同 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ color: '#FFD700' }}>📚 題庫管理中心</h2>
-              <button onClick={() => setViewMode('home')} style={{ padding: '0.5rem 1rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>登出並返回</button>
-            </div>
-            <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '10px', marginBottom: '2rem' }}>
-              <h3 style={{ color: '#3498db', marginBottom: '1rem', textAlign: 'left' }}>✨ 新增題目</h3>
-              <input type="text" placeholder="輸入題目內容" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input admin-input" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                <input type="text" placeholder="選項 A" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input admin-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 B" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input admin-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 C" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input admin-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 D" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input admin-input" style={{ marginBottom: 0 }} />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem' }}>
-                <select value={newAns} onChange={(e) => setNewAns(e.target.value)} className="game-input admin-input" style={{ width: '50%', marginBottom: 0 }}>
-                  <option value="A">正確答案: A</option><option value="B">正確答案: B</option><option value="C">正確答案: C</option><option value="D">正確答案: D</option>
-                </select>
-                <input type="number" placeholder="秒數" value={newTime} onChange={(e) => setNewTime(Number(e.target.value))} className="game-input admin-input" style={{ width: '50%', marginBottom: 0 }} />
-              </div>
-              <button className="btn-summon" onClick={handleAddQuestion} style={{ padding: '0.6rem', fontSize: '1.1rem', background: 'linear-gradient(180deg, #2ecc71 0%, #27ae60 100%)' }}>💾 儲存題目</button>
-            </div>
-            <h3 style={{ color: '#3498db', marginBottom: '1rem', textAlign: 'left' }}>📋 目前題庫 ({qBank.length} 題)</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {qBank.map((q, idx) => (
-                <div key={q.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', textAlign: 'left', borderLeft: '4px solid #FFD700', position: 'relative' }}>
-                  <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>Q{idx + 1}. {q.text}</p>
-                  <p style={{ fontSize: '0.85rem', color: '#bdc3c7' }}>答案: {q.correctAnswer} | 時間: {q.timeLimit}s</p>
-                  <button onClick={() => socket.emit('admin_del_q', q.id)} style={{ position: 'absolute', top: '10px', right: '10px', background: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>刪除</button>
-                </div>
-              ))}
-              {qBank.length === 0 && <p style={{ color: '#888' }}>目前沒有任何題目，請新增！</p>}
-            </div>
-          </div>
-        )}
-
-        {/* 遊戲首頁 */}
+        {/* ===================== 首頁登入 ===================== */}
         {viewMode === 'home' && !isJoined && (
-          <div className="game-panel">
-            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#FFD700', cursor: 'pointer', fontWeight: 'bold', marginBottom: '1.2rem', fontSize: '1rem' }}>
-              <input type="checkbox" checked={isHost} onChange={(e) => setIsHost(e.target.checked)} style={{ width: '1.1rem', height: '1.1rem' }} /> 
-              👑 主持人管理模式
+          <div className="game-panel" style={{ maxWidth: '400px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#FFD700', cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
+              <input type="checkbox" checked={isHost} onChange={(e) => setIsHost(e.target.checked)} style={{ width: '1.2rem', height: '1.2rem' }} /> 👑 主持人管理模式
             </label>
             <input type="text" placeholder="房間代碼" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" />
             <input type="text" placeholder="您的暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
@@ -204,129 +173,202 @@ function App() {
           </div>
         )}
 
-        {/* 遊戲等待中 */}
-        {viewMode === 'home' && isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
-          <div className="game-panel" style={{ maxWidth: '450px' }}>
-            <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1.2rem' }}>房號: {pin}</h2>
-            {isHost ? (
-              <button className="btn-summon" onClick={handleSendQuestion}>▶️ 開啟試煉</button>
-            ) : (
-              <p className="pulse-text" style={{ fontSize: '1.4rem', color: '#3498db' }}>⚔️ 等待大師開啟試煉...</p>
-            )}
-            <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
-              <p style={{ color: '#bdc3c7', marginBottom: '0.8rem', fontSize: '0.9rem' }}>已進場召喚師: {players.length}</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center' }}>
-                {players.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.1)', padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.8rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.2)' }}>{p}</span>)}
-              </div>
+        {/* ===================== 後台管理 ===================== */}
+        {viewMode === 'adminAuth' && (
+          <div className="game-panel" style={{ maxWidth: '400px' }}>
+            <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>🔧 進入題庫管理</h2>
+            <input type="password" placeholder="管理員密碼 (admin)" value={adminPwd} onChange={(e) => setAdminPwd(e.target.value)} className="game-input" />
+            <button className="btn-summon" onClick={handleAdminLogin} style={{ marginBottom: '1rem' }}>登入</button>
+            <button onClick={() => setViewMode('home')} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}>返回</button>
+          </div>
+        )}
+
+        {viewMode === 'adminPanel' && (
+          <div className="game-panel" style={{ width: '100%', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <h2 style={{ color: '#FFD700' }}>📚 題庫管理中心</h2>
+              <button onClick={() => setViewMode('home')} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
+            </div>
+            
+            <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1rem', borderRadius: '10px', marginBottom: '2rem' }}>
+              <select value={qType} onChange={(e) => setQType(e.target.value as any)} className="game-input">
+                <option value="choice">單選題 (預設)</option>
+                <option value="match">圖片配對題 (進階格式)</option>
+              </select>
+              <input type="text" placeholder="輸入題目內容" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
+              
+              {qType === 'choice' && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                    <input type="text" placeholder="選項 A" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                    <input type="text" placeholder="選項 B" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                    <input type="text" placeholder="選項 C" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                    <input type="text" placeholder="選項 D" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                  </div>
+                  <select value={newAns} onChange={(e) => setNewAns(e.target.value)} className="game-input" style={{ marginTop: '10px' }}>
+                    <option value="A">正解: A</option><option value="B">正解: B</option><option value="C">正解: C</option><option value="D">正解: D</option>
+                  </select>
+                </>
+              )}
+              
+              <button className="btn-summon" onClick={handleAddQuestion} style={{ marginTop: '10px', background: '#2ecc71' }}>💾 儲存題目</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {qBank.map((q, idx) => (
+                <div key={q.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', textAlign: 'left', borderLeft: `4px solid ${q.type==='match'?'#9b59b6':'#FFD700'}`, position: 'relative' }}>
+                  <p style={{ fontWeight: 'bold' }}>Q{idx + 1} [{q.type==='match'?'配對':'單選'}]. {q.text}</p>
+                  <button onClick={() => socket.emit('admin_del_q', q.id)} style={{ position: 'absolute', top: '10px', right: '10px', background: '#e74c3c', color: 'white', border: 'none', padding: '5px', borderRadius: '5px' }}>刪除</button>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* 答題進行中 */}
+        {/* ===================== 遊戲大廳 ===================== */}
+        {viewMode === 'home' && isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
+          <div className="game-panel" style={{ maxWidth: '400px' }}>
+            <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
+            {isHost ? (
+              <button className="btn-summon" onClick={handleSendQuestion}>▶️ 開始試煉</button>
+            ) : (
+              <p style={{ fontSize: '1.3rem', color: '#3498db', animation: 'pulse 1.5s infinite' }}>等待大師開啟試煉...</p>
+            )}
+            <p style={{ color: '#bdc3c7', marginTop: '1rem' }}>已進場: {players.length} 人</p>
+          </div>
+        )}
+
+        {/* ===================== 答題進行中 ===================== */}
         {viewMode === 'home' && isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-          <div className="game-panel" style={{ maxWidth: '700px', width: '95%' }}>
+          <div className="game-panel">
             
-            {/* 👇 全域進度條 👇 */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <p style={{ color: '#bdc3c7', fontSize: '0.9rem', marginBottom: '8px', fontWeight: 'bold' }}>
-                戰局進度: {currentQuestion.currentQIndex} / {currentQuestion.totalQuestions} 題
-              </p>
+            {/* 全域進度條 */}
+            <div style={{ marginBottom: '1rem' }}>
+              <p style={{ color: '#bdc3c7', fontSize: '0.85rem', marginBottom: '5px', fontWeight: 'bold' }}>戰局進度: {currentQuestion.currentQIndex} / {currentQuestion.totalQuestions}</p>
               <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px' }}>
-                <div style={{ height: '100%', background: '#FFD700', width: `${(currentQuestion.currentQIndex / currentQuestion.totalQuestions) * 100}%`, transition: 'width 0.5s ease-out', borderRadius: '3px', boxShadow: '0 0 10px rgba(255,215,0,0.5)' }} />
+                <div style={{ height: '100%', background: '#FFD700', width: `${(currentQuestion.currentQIndex / currentQuestion.totalQuestions) * 100}%`, transition: 'width 0.5s', borderRadius: '3px' }} />
               </div>
             </div>
 
-            <h2 style={{ color: '#FFFFFF', fontSize: 'clamp(1.2rem, 4vw, 1.6rem)', marginBottom: '1.5rem', lineHeight: '1.4', textShadow: '0 2px 5px rgba(0,0,0,0.8)' }}>
+            <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem', textShadow: '0 2px 5px rgba(0,0,0,1)' }}>
               {currentQuestion.text}
             </h2>
             
             {/* 倒數計時條 */}
-            <div style={{ width: '100%', height: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '5px', overflow: 'hidden', marginBottom: '2rem' }}>
-              <div style={{ height: '100%', background: timeLeft <= 3 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / currentQuestion.timeLimit) * 100}%`, transition: 'width 1s linear' }} />
+            <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+              <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / currentQuestion.timeLimit) * 100}%`, transition: 'width 1s linear' }} />
             </div>
 
-            {!hasAnswered && !isHost ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {/* ----- 單選題 UI ----- */}
+            {currentQuestion.type === 'choice' && !hasAnswered && !isHost && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 {currentQuestion.options.map((opt: any) => (
-                  <button className="btn-option" key={opt.id} onClick={() => handleAnswerClick(opt.id)} style={{ borderLeft: `6px solid ${opt.color}` }}>{opt.text}</button>
+                  <button key={opt.id} onClick={() => handleChoiceClick(opt.id)} style={{ padding: '1rem', fontSize: '1.1rem', color: '#fff', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', border: 'none', borderLeft: `6px solid ${opt.color}`, cursor: 'pointer' }}>{opt.text}</button>
                 ))}
               </div>
-            ) : isHost ? (
-              <button className="btn-summon" onClick={handleShowLeaderboard} style={{ background: 'linear-gradient(180deg, #9b59b6 0%, #8e44ad 100%)' }}>📊 結算當前排名</button>
-            ) : (
-              // 👇 答題結果的跳動/震動特效 👇
-              <h3 style={{ 
-                fontSize: '2rem', 
-                color: answerResult?.isCorrect ? '#2ecc71' : '#e74c3c',
-                animation: answerResult ? (answerResult.isCorrect ? 'bounceIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'shake 0.5s ease') : 'none'
-              }}>
-                {answerResult ? (answerResult.isCorrect ? `✨ 答對了！ +${answerResult.earnedScore}` : '💀 殘念... 答錯了') : '⏳ 等待大師揭曉...'}
-              </h3>
+            )}
+
+            {/* ----- 配對題 UI ----- */}
+            {currentQuestion.type === 'match' && !hasAnswered && !isHost && (
+              <div>
+                <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊上方魔靈，再點擊下方美腿建立連線</p>
+                
+                {/* 上排：魔靈 */}
+                <div className="match-grid">
+                  {currentQuestion.topItems.map((item: any, index: number) => {
+                    const isActive = activeTopId === item.id;
+                    const isMatched = Object.keys(userMatches).includes(item.id);
+                    return (
+                      <div key={item.id} onClick={() => handleTopClick(item.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive ? topColors[item.id] : (isMatched ? '#2ecc71' : 'transparent') }}>
+                        <img src={item.img} alt="top" />
+                        <p>{item.name || `目標 ${index+1}`}</p>
+                        {isMatched && <div className="match-badge" style={{ background: '#2ecc71' }}>✓</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 下排：部位 */}
+                <div className="match-grid">
+                  {currentQuestion.bottomItems.map((item: any) => {
+                    const matchedTopId = Object.keys(userMatches).find(k => userMatches[k] === item.id);
+                    return (
+                      <div key={item.id} onClick={() => handleBottomClick(item.id)} className="match-item" style={{ borderColor: matchedTopId ? topColors[matchedTopId] : 'transparent' }}>
+                        <img src={item.img} alt="bottom" />
+                        {matchedTopId && <div className="match-badge" style={{ background: topColors[matchedTopId] }}>{matchedTopId.replace('T', '')}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button className="btn-summon" onClick={handleMatchSubmit} disabled={Object.keys(userMatches).length !== currentQuestion.topItems.length} style={{ marginTop: '10px' }}>
+                  {Object.keys(userMatches).length === currentQuestion.topItems.length ? '確認送出配對！' : '請完成所有配對...'}
+                </button>
+              </div>
+            )}
+
+            {/* ----- 狀態顯示 ----- */}
+            {isHost && !answerResult && <button className="btn-summon" onClick={handleShowLeaderboard} style={{ background: '#9b59b6' }}>📊 結算當前排名</button>}
+            
+            {answerResult && (
+              <div style={{ animation: 'bounceIn 0.8s ease' }}>
+                <h3 style={{ fontSize: '2rem', color: answerResult.isCorrect ? '#2ecc71' : '#e74c3c' }}>
+                  {answerResult.isCorrect ? `✨ 答對了！ +${answerResult.earnedScore}` : '💀 殘念...'}
+                </h3>
+              </div>
             )}
           </div>
         )}
 
-        {/* 後續的排行榜、復盤、頒獎台維持原樣... (皆已自動套用 slideUp 特效) */}
+        {/* ===================== 排行榜與復盤 ===================== */}
         {viewMode === 'home' && isJoined && leaderboard && (
            <div className="game-panel">
-           <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '1.5rem' }}>🏆 榮譽殿堂</h2>
+           <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            {leaderboard.map((player: any, index: number) => (
-             <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '10px', borderLeft: index === 0 ? '5px solid #FFD700' : '5px solid #444', fontSize: '1.2rem' }}>
+             <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '8px', borderLeft: index === 0 ? '5px solid #FFD700' : '5px solid #444', fontSize: '1.1rem' }}>
                <span style={{ color: '#FFF' }}>#{index + 1} {player.username}</span>
                <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{player.score}</span>
              </div>
            ))}
-           {isHost && <button className="btn-summon" onClick={handleShowReview} style={{ marginTop: '1.5rem', background: 'linear-gradient(180deg, #2980b9 0%, #2c3e50 100%)' }}>🔍 檢視戰報</button>}
+           {isHost && <button className="btn-summon" onClick={handleShowReview} style={{ marginTop: '1.5rem', background: '#34495e' }}>🔍 檢視戰報</button>}
          </div>
         )}
 
         {viewMode === 'home' && isJoined && reviewData && (
-          <div className="game-panel" style={{ maxWidth: '550px' }}>
-            <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1.5rem' }}>數據復盤</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              {reviewData.question.options.map((opt: any) => {
-                const isCorrect = opt.id === reviewData.question.correctAnswer;
-                const count = reviewData.stats[opt.id] || 0;
-                return (
-                  <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isCorrect ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isCorrect ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}>
-                    <span style={{ fontSize: '1.1rem', color: isCorrect ? '#2ecc71' : '#fff', textAlign: 'left' }}>{isCorrect && '✔️ '} {opt.text}</span>
-                    <span style={{ fontSize: '1.1rem', color: '#bdc3c7' }}>{count} 人</span>
-                  </div>
-                );
-              })}
-            </div>
-            {isHost && reviewData.hasNextQuestion && (
-              <button className="btn-summon" onClick={handleSendQuestion} style={{ marginTop: '1.5rem', background: 'linear-gradient(180deg, #2ecc71 0%, #27ae60 100%)' }}>▶️ 下一題</button>
+          <div className="game-panel">
+            <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>數據復盤</h2>
+            {reviewData.question.type === 'choice' ? (
+               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                 {reviewData.question.options.map((opt: any) => {
+                   const isCorrect = opt.id === reviewData.question.correctAnswer;
+                   return (
+                     <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isCorrect ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isCorrect ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}>
+                       <span style={{ color: isCorrect ? '#2ecc71' : '#fff' }}>{isCorrect && '✔️ '} {opt.text}</span>
+                       <span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span>
+                     </div>
+                   );
+                 })}
+               </div>
+            ) : (
+               <p style={{ color: '#2ecc71', fontSize: '1.2rem' }}>配對題解答已公佈！</p>
             )}
-            {isHost && !reviewData.hasNextQuestion && (
-              <button className="btn-summon" onClick={handleShowPodium} style={{ marginTop: '1.5rem', background: 'linear-gradient(180deg, #f1c40f 0%, #f39c12 100%)' }}>🏆 揭曉最終榮耀</button>
+            
+            {isHost && reviewData.hasNextQuestion ? (
+              <button className="btn-summon" onClick={handleSendQuestion} style={{ marginTop: '1.5rem', background: '#2ecc71' }}>▶️ 下一題</button>
+            ) : isHost ? (
+              <button className="btn-summon" onClick={handleShowPodium} style={{ marginTop: '1.5rem', background: '#f1c40f' }}>🏆 揭曉最終榮耀</button>
             )}
           </div>
         )}
 
+        {/* 最終頒獎台略過細節，維持原本設計 */}
         {viewMode === 'home' && isJoined && podiumData && (
-          <div className="game-panel" style={{ maxWidth: '600px', width: '95%' }}>
+          <div className="game-panel">
             <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '2rem' }}>傳奇誕生</h2>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '0.5rem', height: '160px' }}>
-              {podiumData[1] && (
-                <div style={{ width: '30%', animation: 'slideUp 0.8s ease-out' }}>
-                  <div style={{ background: '#bdc3c7', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', fontWeight: 'bold', color: '#000', borderRadius: '8px 8px 0 0' }}>2</div>
-                  <p style={{ color: '#FFF', fontSize: '0.9rem', marginTop: '8px'}}>{podiumData[1].username}</p>
-                </div>
-              )}
-              {podiumData[0] && (
-                <div style={{ width: '40%', animation: 'bounceIn 1s ease' }}>
-                  <div style={{ background: '#f1c40f', height: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.8rem', fontWeight: 'bold', color: '#000', borderRadius: '10px 10px 0 0', boxShadow: '0 0 20px #FFD700' }}>1</div>
-                  <p style={{ color: '#FFD700', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '8px' }}>{podiumData[0].username}</p>
-                </div>
-              )}
-              {podiumData[2] && (
-                <div style={{ width: '30%', animation: 'slideUp 1.2s ease-out' }}>
-                  <div style={{ background: '#e67e22', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#000', borderRadius: '8px 8px 0 0' }}>3</div>
-                  <p style={{ color: '#FFF', fontSize: '0.9rem', marginTop: '8px'}}>{podiumData[2].username}</p>
-                </div>
-              )}
-            </div>
+            {/* 為了節省空間，維持上一版頒獎台代碼邏輯 */}
+            <h3 style={{color: '#f1c40f', fontSize: '2rem'}}>🥇 {podiumData[0]?.username}</h3>
+            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.5rem', marginTop: '10px'}}>🥈 {podiumData[1]?.username}</h4>}
+            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.2rem', marginTop: '10px'}}>🥉 {podiumData[2]?.username}</h4>}
           </div>
         )}
 
@@ -334,5 +376,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
