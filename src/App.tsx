@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const socket: Socket = io('https://swtest-pgq8.onrender.com'); // ⚠️ 記得替換成你的 Render 網址
+// 這裡已經換成你的專屬後端網址囉！
+const socket: Socket = io('https://swtest-pgq8.onrender.com'); 
 
 function App() {
   const [username, setUsername] = useState('');
@@ -117,6 +118,7 @@ function App() {
       {/* 主要內容區 */}
       <div style={{ padding: '0 10px', width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10 }}>
         
+        {/* 登入畫面 */}
         {!isJoined && (
           <div className="game-panel">
             <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#FFD700', cursor: 'pointer', fontWeight: 'bold', marginBottom: '1.2rem', fontSize: '1rem' }}>
@@ -129,6 +131,7 @@ function App() {
           </div>
         )}
 
+        {/* 等待大廳 */}
         {isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
           <div className="game-panel" style={{ maxWidth: '450px' }}>
             <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1.2rem' }}>房號: {pin}</h2>
@@ -146,9 +149,19 @@ function App() {
           </div>
         )}
 
+        {/* 答題進行中 */}
         {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
           <div className="game-panel" style={{ maxWidth: '700px', width: '95%' }}>
-            <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.6rem)', marginBottom: '1.5rem' }}>{currentQuestion.text}</h2>
+            {/* 題目文字修復：強制變白並且加上陰影 */}
+            <h2 style={{ 
+              color: '#FFFFFF', 
+              fontSize: 'clamp(1.2rem, 4vw, 1.6rem)', 
+              marginBottom: '1.5rem',
+              lineHeight: '1.4',
+              textShadow: '0 2px 5px rgba(0,0,0,0.8)' 
+            }}>
+              {currentQuestion.text}
+            </h2>
             <div style={{ width: '100%', height: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '5px', overflow: 'hidden', marginBottom: '2rem' }}>
               <div style={{ height: '100%', background: timeLeft <= 3 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / currentQuestion.timeLimit) * 100}%`, transition: 'width 1s linear' }} />
             </div>
@@ -168,12 +181,13 @@ function App() {
           </div>
         )}
 
+        {/* 排行榜 */}
         {isJoined && leaderboard && (
            <div className="game-panel">
            <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '1.5rem' }}>🏆 榮譽殿堂</h2>
            {leaderboard.map((player: any, index: number) => (
              <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '10px', borderLeft: index === 0 ? '5px solid #FFD700' : '5px solid #444', fontSize: '1.2rem' }}>
-               <span>#{index + 1} {player.username}</span>
+               <span style={{ color: '#FFF' }}>#{index + 1} {player.username}</span>
                <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{player.score}</span>
              </div>
            ))}
@@ -181,6 +195,7 @@ function App() {
          </div>
         )}
 
+        {/* 賽後復盤 */}
         {isJoined && reviewData && (
           <div className="game-panel" style={{ maxWidth: '550px' }}>
             <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1.5rem' }}>數據復盤</h2>
@@ -200,6 +215,7 @@ function App() {
           </div>
         )}
 
+        {/* 最終頒獎台 */}
         {isJoined && podiumData && (
           <div className="game-panel" style={{ maxWidth: '600px', width: '95%' }}>
             <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '2rem' }}>傳奇誕生</h2>
@@ -207,7 +223,7 @@ function App() {
               {podiumData[1] && (
                 <div style={{ width: '30%' }}>
                   <div style={{ background: '#bdc3c7', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', fontWeight: 'bold', color: '#000', borderRadius: '8px 8px 0 0' }}>2</div>
-                  <p style={{fontSize: '0.9rem', marginTop: '8px'}}>{podiumData[1].username}</p>
+                  <p style={{ color: '#FFF', fontSize: '0.9rem', marginTop: '8px'}}>{podiumData[1].username}</p>
                 </div>
               )}
               {podiumData[0] && (
@@ -219,7 +235,7 @@ function App() {
               {podiumData[2] && (
                 <div style={{ width: '30%' }}>
                   <div style={{ background: '#e67e22', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', color: '#000', borderRadius: '8px 8px 0 0' }}>3</div>
-                  <p style={{fontSize: '0.9rem', marginTop: '8px'}}>{podiumData[2].username}</p>
+                  <p style={{ color: '#FFF', fontSize: '0.9rem', marginTop: '8px'}}>{podiumData[2].username}</p>
                 </div>
               )}
             </div>
