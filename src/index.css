@@ -3,14 +3,16 @@ body, html, #root { width: 100%; height: 100%; overflow: hidden; background: #00
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-
-/* 👇 題目切換轉場特效 👇 */
 @keyframes popInRight { 0% { opacity: 0; transform: translateX(50px) scale(0.95); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
 .question-transition { animation: popInRight 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 
-/* 👇 頒獎台煙火特效 👇 */
-@keyframes fireworkUp { 0% { opacity: 0; transform: translateY(50px) scale(0.5); } 50% { opacity: 1; transform: translateY(-20px) scale(1.2); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
-.firework { position: absolute; font-size: 3rem; animation: fireworkUp 2s ease-out infinite; z-index: 0; }
+/* 👇 煙火特效優化：定位於左右兩側，絕不擋字 👇 */
+@keyframes fireworkUp { 0% { opacity: 0; transform: translateY(40px) scale(0.5); } 50% { opacity: 1; transform: translateY(-10px) scale(1.3); } 100% { opacity: 0; transform: translateY(-30px) scale(1.5); } }
+.firework { position: absolute; font-size: 3.5rem; animation: fireworkUp 1.5s ease-out infinite; pointer-events: none; text-shadow: none; background: transparent; z-index: 1; }
+.fw-1 { left: 8%; top: 20%; animation-delay: 0s; }
+.fw-2 { right: 8%; top: 30%; animation-delay: 0.4s; }
+.fw-3 { left: 15%; top: 60%; animation-delay: 0.8s; }
+.fw-4 { right: 15%; top: 50%; animation-delay: 0.2s; }
 .podium-content { position: relative; z-index: 10; animation: bounceIn 1s ease; }
 
 .game-panel { background: rgba(15, 18, 28, 0.95); backdrop-filter: blur(25px); border: 1px solid rgba(255, 215, 0, 0.4); border-radius: 20px; box-shadow: 0 15px 45px rgba(0,0,0,0.9); padding: clamp(1rem, 4vh, 2rem); color: #fff; width: clamp(280px, 95%, 700px); text-align: center; margin-top: 10px; animation: slideUp 0.5s ease forwards; position: relative; overflow: hidden; }

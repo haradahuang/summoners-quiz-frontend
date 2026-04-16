@@ -18,7 +18,9 @@ export default function App() {
   const [pin, setPin] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [isJoined, setIsJoined] = useState(false);
-  const [players, setPlayers] = useState<string[]>([]);
+  
+  // 玩家名單現在包含分數： { username: string, score: number }
+  const [players, setPlayers] = useState<any[]>([]);
   
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -42,7 +44,6 @@ export default function App() {
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // 👇 接收後端傳來的完整玩家名單 👇
     socket.on('update_players', (list) => setPlayers(list || []));
     
     socket.on('receive_question', (q) => { 
@@ -107,18 +108,21 @@ export default function App() {
     const qData = {
       type: qType, text: newQText, timeLimit: newTime,
       ...(qType === 'choice' ? {
-        correctAnswer: newAns,
-        options: [ { id: 'A', text: newOptA || 'A', color: '#e53e3e' }, { id: 'B', text: newOptB || 'B', color: '#3182ce' }, { id: 'C', text: newOptC || 'C', color: '#d69e2e' }, { id: 'D', text: newOptD || 'D', color: '#805ad5' } ]
+        correctAnswer: newAns, options: [ { id: 'A', text: newOptA || 'A', color: '#e53e3e' }, { id: 'B', text: newOptB || 'B', color: '#3182ce' }, { id: 'C', text: newOptC || 'C', color: '#d69e2e' }, { id: 'D', text: newOptD || 'D', color: '#805ad5' } ]
       } : {
-        topItems: [{id: 'T1', name:'魔靈 A'}, {id: 'T2', name:'魔靈 B'}, {id: 'T3', name:'魔靈 C'}, {id: 'T4', name:'魔靈 D'}],
-        bottomItems: [{id: 'B1'}, {id: 'B2'}, {id: 'B3'}, {id: 'B4'}],
-        correctMatches: { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' }
+        topItems: [{id: 'T1', name:'魔靈 A'}, {id: 'T2', name:'魔靈 B'}, {id: 'T3', name:'魔靈 C'}, {id: 'T4', name:'魔靈 D'}], bottomItems: [{id: 'B1'}, {id: 'B2'}, {id: 'B3'}, {id: 'B4'}], correctMatches: { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' }
       })
     };
     socket.emit('admin_add_q', qData); setNewQText('');
   };
 
   const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
+
+  // 👇 計算當前玩家自己的名次與分數 👇
+  const sortedPlayers = [...(players || [])].sort((a, b) => b.score - a.score);
+  const myRankIndex = sortedPlayers.findIndex(p => p.username === username);
+  const myRank = myRankIndex !== -1 ? myRankIndex + 1 : '-';
+  const myScore = players.find(p => p.username === username)?.score || 0;
 
   return (
     <ErrorBoundary>
@@ -150,16 +154,24 @@ export default function App() {
               <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
               {isHost ? <button className="btn-summon" onClick={handleSendQuestion}>▶️ 開始試煉</button> : <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待大師開啟試煉...</p>}
               <p style={{ color: '#bdc3c7', marginTop: '1rem' }}>已進場: {(players || []).length} 人</p>
-              {/* 👇 顯示所有玩家 👇 */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center', marginTop: '10px' }}>
-                {(players || []).map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.1)', padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', color: '#FFD700' }}>{p}</span>)}
+                {(players || []).map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.1)', padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', color: '#FFD700' }}>{p.username}</span>)}
               </div>
             </div>
           )}
 
-          {/* 👇 題目畫面：加入 question-transition 轉場特效，並將 isHost 限制解除讓主持可看 👇 */}
+          {/* 答題畫面 */}
           {viewMode === 'home' && isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
             <div className="game-panel question-transition" key={currentQuestion.id}>
+              
+              {/* 👇 玩家個人的頂部積分列 👇 */}
+              {!isHost && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
+                  <span>👤 {username}</span>
+                  <span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
+                </div>
+              )}
+
               <div style={{ marginBottom: '1rem' }}>
                 <p style={{ color: '#bdc3c7', fontSize: '0.85rem', marginBottom: '5px', fontWeight: 'bold' }}>戰局進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}</p>
                 <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px' }}>
@@ -172,7 +184,6 @@ export default function App() {
                 <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
               </div>
 
-              {/* 讓主持人也能看見題目，但加上半透明與禁止點擊效果 */}
               <div style={{ pointerEvents: isHost ? 'none' : 'auto', opacity: isHost ? 0.7 : 1 }}>
                 {currentQuestion?.type === 'choice' && !hasAnswered && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -190,7 +201,7 @@ export default function App() {
                         const isActive = activeTopId === item?.id; const isMatched = Boolean(userMatches?.[item?.id]); const itemColor = topColors[item?.id] || '#fff';
                         return (
                           <div key={item?.id || index} onClick={() => handleTopClick(item?.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive || isMatched ? itemColor : 'transparent' }}>
-                            {item?.img && <img src={item.img} alt="top" referrerPolicy="no-referrer" />}
+                            {item?.img && <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" />}
                             <p>{item?.name || `目標 ${index+1}`}</p>
                             {isMatched && <div className="match-badge" style={{ background: itemColor }}>✓</div>}
                           </div>
@@ -203,7 +214,7 @@ export default function App() {
                         if (userMatches) { for (const k in userMatches) { if (userMatches[k] === item?.id) matchedTopId = k; } }
                         return (
                           <div key={item?.id || index} onClick={() => handleBottomClick(item?.id)} className="match-item" style={{ borderColor: matchedTopId ? topColors[matchedTopId] : 'transparent' }}>
-                            {item?.img && <img src={item.img} alt="bottom" referrerPolicy="no-referrer" />}
+                            {item?.img && <img src={item.img} alt="bottom" referrerPolicy="no-referrer" crossOrigin="anonymous" />}
                             {matchedTopId && <div className="match-badge" style={{ background: topColors[matchedTopId] || '#fff' }}>✓</div>}
                           </div>
                         );
@@ -218,7 +229,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* 主持人隨時可以結算 */}
               {isHost && <button className="btn-summon" onClick={handleShowLeaderboard} style={{ background: '#9b59b6', marginTop: '1.5rem' }}>📊 結算當前排名</button>}
               
               {answerResult && !isHost && (
@@ -235,14 +245,13 @@ export default function App() {
              {(leaderboard || []).map((player: any, index: number) => (
                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '8px', borderLeft: index === 0 ? '5px solid #FFD700' : '5px solid #444', fontSize: '1.1rem' }}>
                  <span style={{ color: '#FFF' }}>#{index + 1} {player?.username}</span>
-                 <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{player?.score}</span>
+                 <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{player?.score} 分</span>
                </div>
              ))}
              {isHost && <button className="btn-summon" onClick={handleShowReview} style={{ marginTop: '1.5rem', background: '#34495e' }}>🔍 檢視戰報</button>}
            </div>
           )}
 
-          {/* 👇 復盤：加入連連看正確解答的視覺呈現 👇 */}
           {viewMode === 'home' && isJoined && reviewData && (
             <div className="game-panel">
               <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>數據復盤</h2>
@@ -286,20 +295,19 @@ export default function App() {
             </div>
           )}
 
-          {/* 👇 最終頒獎台：加入煙火與獎盃特效 👇 */}
+          {/* 👇 最終頒獎台：煙火改在兩側邊緣、加入分數後綴 👇 */}
           {viewMode === 'home' && isJoined && podiumData && (
             <div className="game-panel">
-              {/* 煙火特效層 */}
-              <div className="firework" style={{ top: '5%', left: '15%', animationDelay: '0s' }}>🎆</div>
-              <div className="firework" style={{ top: '15%', right: '15%', animationDelay: '0.5s' }}>🎇</div>
-              <div className="firework" style={{ top: '2%', left: '45%', animationDelay: '1s' }}>✨</div>
-              <div className="firework" style={{ top: '25%', left: '30%', animationDelay: '0.2s' }}>🎊</div>
+              <div className="firework fw-1">🎆</div>
+              <div className="firework fw-2">🎇</div>
+              <div className="firework fw-3">✨</div>
+              <div className="firework fw-4">🎊</div>
               
               <div className="podium-content">
                 <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-                {podiumData?.[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem', margin: '15px 0'}}>🥇 {podiumData[0]?.username}</h3>}
-                {podiumData?.[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem', margin: '15px 0'}}>🥈 {podiumData[1]?.username}</h4>}
-                {podiumData?.[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem', margin: '15px 0'}}>🥉 {podiumData[2]?.username}</h4>}
+                {podiumData?.[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem', margin: '20px 0'}}>🥇 {podiumData[0]?.username} <span style={{fontSize:'1.2rem'}}>({podiumData[0]?.score}分)</span></h3>}
+                {podiumData?.[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem', margin: '20px 0'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
+                {podiumData?.[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem', margin: '20px 0'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
               </div>
             </div>
           )}
