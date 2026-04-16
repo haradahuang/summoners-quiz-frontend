@@ -18,6 +18,44 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
 // ==========================================
+// 🏆 動態排行榜元件 (共用)
+// ==========================================
+const LeaderboardView = ({ data }: { data: any[] }) => {
+  return (
+    <div style={{ position: 'relative', height: `${data.length * 70}px`, transition: 'height 0.3s', marginBottom: '10px' }}>
+      {data.map((player: any, idx: number) => {
+        const rankColors = ['#FFD700', '#bdc3c7', '#e67e22'];
+        const rankColor = idx < 3 ? rankColors[idx] : '#444';
+        const fontSize = idx === 0 ? '1.6rem' : idx === 1 ? '1.4rem' : idx === 2 ? '1.2rem' : '1.05rem';
+        const fontWeight = idx < 3 ? '900' : 'bold';
+        
+        return (
+          <div key={player.username} style={{ 
+            position: 'absolute', 
+            top: `${idx * 70}px`, 
+            left: 0, 
+            width: '100%', 
+            height: '60px',
+            transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            padding: '0 1rem', 
+            background: 'rgba(255,255,255,0.05)', 
+            borderRadius: '8px', 
+            borderLeft: `5px solid ${rankColor}`, 
+            zIndex: 10 - idx
+          }}>
+            <span style={{ color: idx < 3 ? rankColor : '#FFF', fontSize, fontWeight }}>#{idx + 1} {player.username}</span>
+            <span style={{ color: idx < 3 ? rankColor : '#FFD700', fontSize, fontWeight }}>{player.score} 分</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ==========================================
 // 🎮 玩家端介面 (Player View)
 // ==========================================
 function PlayerApp() {
@@ -50,7 +88,7 @@ function PlayerApp() {
     
     socket.on('answer_result', setAnswerResult);
     socket.on('leaderboard_updated', setLeaderboard);
-    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); // 隱藏排行榜
+    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); });
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
     socket.on('join_error', (msg) => { alert(msg); setIsJoined(false); });
     return () => { socket.off(); };
@@ -161,15 +199,12 @@ function PlayerApp() {
         </div>
       )}
 
-      {isJoined && leaderboard && (
+      {/* 👇 加入新的動態排行榜元件 👇 */}
+      {isJoined && leaderboard && !reviewData && !podiumData && (
          <div className="game-panel">
-         <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
-         {(leaderboard || []).map((player: any, idx: number) => (
-           <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '8px', borderLeft: idx === 0 ? '5px solid #FFD700' : '5px solid #444', fontSize: '1.1rem' }}>
-             <span style={{ color: '#FFF' }}>#{idx + 1} {player?.username}</span><span style={{ color: '#FFD700', fontWeight: 'bold' }}>{player?.score} 分</span>
-           </div>
-         ))}
-       </div>
+           <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
+           <LeaderboardView data={leaderboard} />
+         </div>
       )}
 
       {isJoined && reviewData && (
@@ -256,7 +291,8 @@ function AdminApp() {
     socket.on('update_players', (list) => setPlayers(list || []));
     socket.on('receive_question', (q) => { setCurrentQuestion(q); setLeaderboard(null); setReviewData(null); setPodiumData(null); });
     socket.on('leaderboard_updated', setLeaderboard);
-    socket.on('review_updated', setReviewData);
+    // 👇 確保收到解答資料時，排行榜狀態會被清空隱藏 👇
+    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); 
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
     return () => { socket.off(); };
   }, []);
@@ -285,31 +321,20 @@ function AdminApp() {
   };
 
   const handleHostGame = (packId: string) => { socket.emit('host_create_room', packId); };
-
   const handleDeletePack = async (packId: string) => {
     if (!window.confirm('確定要刪除這個題庫包嗎？此動作無法復原！')) return;
-    try {
-      const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' });
-      if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); }
-    } catch (e) { alert('刪除失敗'); }
+    try { const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' }); if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); } } catch (e) { alert('刪除失敗'); }
   };
 
   const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] }); };
-
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫題庫包名稱！');
-    try {
-      const res = await fetch(`${API_URL}/quizzes`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPack)
-      });
-      if (res.ok) { alert('💾 題庫包儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); }
-    } catch(e) { alert('儲存失敗'); }
+    try { const res = await fetch(`${API_URL}/quizzes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPack) }); if (res.ok) { alert('💾 題庫包儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); } } catch(e) { alert('儲存失敗'); }
   };
 
   const handleAddQuestion = () => {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: Date.now(), type: qType, text: newQText, timeLimit: newTime };
-    
     if (qType === 'choice') {
       if (!newOptA.trim() || !newOptB.trim()) return alert('單選題請至少填寫 A 與 B 兩個選項！');
       const options = [];
@@ -317,7 +342,6 @@ function AdminApp() {
       if (newOptB.trim()) options.push({ id: 'B', text: newOptB, color: '#3182ce' });
       if (newOptC.trim()) options.push({ id: 'C', text: newOptC, color: '#d69e2e' });
       if (newOptD.trim()) options.push({ id: 'D', text: newOptD, color: '#805ad5' });
-
       if (!options.find(o => o.id === newAns)) return alert(`您設定的正解是 ${newAns}，但您沒有填寫該選項的內容！`);
       newQ.correctAnswer = newAns; newQ.options = options;
     } else {
@@ -354,7 +378,6 @@ function AdminApp() {
     return (
       <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
         
-        {/* 👇 遊戲尚未開始：顯示大廳資訊 👇 */}
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -368,22 +391,16 @@ function AdminApp() {
             <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)}>▶️ 開始遊戲</button>
           </>
         ) : (
-          /* 👇 遊戲進行中：隱藏大廳資訊，顯示同步畫面 👇 */
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', color: '#bdc3c7', fontSize: '0.9rem', marginBottom: '15px', borderBottom: '1px solid #444', paddingBottom: '10px' }}>
               <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>👑 主持人模式</span>
               <span>房間: {hostingPin} | 進場: {players.length} 人</span>
             </div>
 
-            {/* 作答中的畫面同步 */}
             {currentQuestion && !leaderboard && !reviewData && !podiumData && (
               <div className="question-transition">
                 <h3 style={{ color: '#34db98', marginBottom: '10px' }}>⏳ 題目作答中... (已答題: {answeredCount} / {players.length} 人)</h3>
-                
-                <div style={{ marginBottom: '1rem' }}>
-                  <p style={{ color: '#34db98', fontSize: '1rem', marginBottom: '5px', fontWeight: 'bold' }}>戰局進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}</p>
-                </div>
-                
+                <div style={{ marginBottom: '1rem' }}><p style={{ color: '#34db98', fontSize: '1rem', marginBottom: '5px', fontWeight: 'bold' }}>戰局進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}</p></div>
                 <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1.5rem' }}>{currentQuestion.text}</h2>
                 
                 {currentQuestion.type === 'choice' && (
@@ -393,40 +410,31 @@ function AdminApp() {
                     ))}
                   </div>
                 )}
-
                 {currentQuestion.type === 'match' && (
                   <div style={{ color: '#bdc3c7', fontSize: '0.9rem', opacity: 0.8, pointerEvents: 'none' }}>
                     <p style={{ marginBottom: '10px' }}>[圖片配對題選項]</p>
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                        {(currentQuestion.topItems || []).map((item: any, idx: number) => (
                          <div key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', color: '#fff', textAlign: 'center' }}>
-                           <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px', display: 'block' }} />
-                           <span style={{ fontSize: '0.8rem' }}>{item.name}</span>
+                           <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px', display: 'block' }} /><span style={{ fontSize: '0.8rem' }}>{item.name}</span>
                          </div>
                        ))}
                     </div>
                   </div>
                 )}
-
                 <button className="btn-summon" onClick={() => socket.emit('host_show_leaderboard', hostingPin)} style={{ background: '#9b59b6', marginTop: '20px' }}>📊 結算當前排名</button>
               </div>
             )}
 
-            {/* 排行榜同步 */}
-            {leaderboard && (
+            {/* 👇 主持人排行榜同步：套用動態元件 👇 */}
+            {leaderboard && !reviewData && !podiumData && (
               <div>
                 <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
-                {(leaderboard || []).map((player: any, idx: number) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '8px', borderLeft: idx === 0 ? '5px solid #FFD700' : '5px solid #444', fontSize: '1.1rem' }}>
-                    <span style={{ color: '#FFF' }}>#{idx + 1} {player?.username}</span><span style={{ color: '#FFD700', fontWeight: 'bold' }}>{player?.score} 分</span>
-                  </div>
-                ))}
-                {/* 👇 按鈕更名為公佈答案 👇 */}
+                <LeaderboardView data={leaderboard} />
                 <button className="btn-summon" onClick={() => socket.emit('host_show_review', hostingPin)} style={{ background: '#34495e', marginTop: '15px' }}>🔍 公佈答案</button>
               </div>
             )}
 
-            {/* 正確答案畫面同步 */}
             {reviewData && (
               <div>
                 <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
@@ -464,7 +472,6 @@ function AdminApp() {
               </div>
             )}
 
-            {/* 最終頒獎台同步 */}
             {podiumData && (
               <div>
                 <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div><div className="firework fw-3">✨</div><div className="firework fw-4">🎊</div>
