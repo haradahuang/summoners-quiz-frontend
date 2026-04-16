@@ -1,27 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
+import './index.css'; // 👈 關鍵：獨立引入 CSS，避免打包工具解析錯亂
 
 const socket: Socket = io('https://swtest-pgq8.onrender.com'); 
 
-// 防護罩：捕捉崩潰原因
 class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: string }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, errorMsg: '' };
-  }
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, errorMsg: error.toString() };
-  }
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error("React 崩潰細節:", error, errorInfo);
-  }
+  constructor(props: any) { super(props); this.state = { hasError: false, errorMsg: '' }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, errorMsg: error.toString() }; }
+  componentDidCatch(error: any, errorInfo: any) { console.error("React Error:", error, errorInfo); }
   render() {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '2rem', background: '#2c3e50', color: 'white', minHeight: '100vh', textAlign: 'center' }}>
-          <h2 style={{ color: '#e74c3c', marginBottom: '1rem' }}>❌ 畫面渲染發生致命錯誤</h2>
-          <p style={{ background: '#000', padding: '1rem', color: '#e74c3c', borderRadius: '8px', wordBreak: 'break-all' }}>{this.state.errorMsg}</p>
-          <button onClick={() => window.location.reload()} style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer' }}>重新整理</button>
+          <h2 style={{ color: '#e74c3c' }}>❌ 致命錯誤</h2>
+          <p style={{ background: '#000', padding: '1rem', color: '#e74c3c' }}>{this.state.errorMsg}</p>
+          <button onClick={() => window.location.reload()} style={{ padding: '10px 20px' }}>重新整理</button>
         </div>
       );
     }
@@ -140,28 +133,6 @@ export default function App() {
         backgroundSize: 'cover', backgroundPosition: 'center', overflowY: 'auto'
       }}>
         
-        <style>
-          {`
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body, html { width: 100%; height: 100%; overflow: hidden; background: #000; }
-            @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-            @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-            
-            .game-panel { background: rgba(15, 18, 28, 0.95); backdrop-filter: blur(25px); border: 1px solid rgba(255, 215, 0, 0.4); border-radius: 20px; box-shadow: 0 15px 45px rgba(0,0,0,0.9); padding: clamp(1rem, 4vh, 2rem); color: #fff; width: clamp(280px, 95%, 700px); text-align: center; margin-top: 10px; animation: slideUp 0.5s ease forwards; }
-            .game-input { width: 100%; padding: 0.8rem; background: rgba(0,0,0,0.7); border: 1px solid #4a5568; border-radius: 8px; color: #fff; font-size: 1rem; outline: none; margin-bottom: 0.7rem; text-align: center; transition: all 0.3s; }
-            .btn-summon { width: 100%; padding: 0.9rem; font-size: 1.25rem; font-weight: 900; background: linear-gradient(180deg, #ffb347 0%, #ff7b00 100%); color: #fff; border: 1.5px solid #fff; border-radius: 10px; cursor: pointer; transition: transform 0.1s; }
-            .btn-summon:disabled { filter: grayscale(1); cursor: not-allowed; }
-            .text-glow { background: linear-gradient(to bottom, #FFD700 30%, #f39c12 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; font-size: clamp(2rem, 6vw, 2.8rem); filter: drop-shadow(0 0 5px rgba(0,0,0,0.8)); margin-bottom: 5px; line-height: 1.2; }
-            
-            .match-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
-            .match-item { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; background: rgba(255,255,255,0.05); }
-            .match-item img { width: 100%; height: 90px; object-fit: contain; display: block; background: rgba(0,0,0,0.5); }
-            .match-item p { font-size: 0.8rem; padding: 5px; font-weight: bold; text-shadow: 0 1px 3px #000; }
-            .match-item.active { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
-            .match-badge { position: absolute; top: 0px; right: 0px; width: 25px; height: 25px; border-radius: 0 0 0 10px; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border-left: 2px solid #fff; border-bottom: 2px solid #fff; box-shadow: -2px 2px 5px rgba(0,0,0,0.5); }
-          `}
-        </style>
-
         {!isJoined && viewMode === 'home' && <button onClick={() => setViewMode('adminAuth')} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', opacity: 0.3 }}>⚙️</button>}
 
         {viewMode === 'home' && <div style={{ textAlign: 'center', zIndex: 10 }}><h1 className="text-glow">傳奇金頭腦挑戰賽</h1></div>}
@@ -189,7 +160,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ===================== 答題介面 ===================== */}
+          {/* 答題介面 */}
           {viewMode === 'home' && isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
             <div className="game-panel">
               <div style={{ marginBottom: '1rem' }}>
@@ -199,9 +170,7 @@ export default function App() {
                 </div>
               </div>
 
-              <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem', textShadow: '0 2px 5px rgba(0,0,0,1)' }}>
-                {currentQuestion?.text}
-              </h2>
+              <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem', textShadow: '0 2px 5px rgba(0,0,0,1)' }}>{currentQuestion?.text}</h2>
               
               <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
                 <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
