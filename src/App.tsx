@@ -85,14 +85,32 @@ export default function App() {
   const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
   const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
 
-  const handleTopClick = (id: string) => setActiveTopId(id === activeTopId ? null : id);
+  // 👇 優化配對邏輯：重選與取消更直覺 👇
+  const handleTopClick = (id: string) => {
+    setActiveTopId(id === activeTopId ? null : id);
+    // 點擊魔靈時，如果他已經有配對了，就幫他解除，方便重新選腿
+    setUserMatches(prev => {
+      const newMatches = { ...prev };
+      if (newMatches[id]) delete newMatches[id];
+      return newMatches;
+    });
+  };
+
   const handleBottomClick = (bottomId: string) => {
     setUserMatches(prev => {
       const newMatches = { ...prev };
       let existingTopKey = null;
       for (const key in newMatches) { if (newMatches[key] === bottomId) existingTopKey = key; }
-      if (existingTopKey) delete newMatches[existingTopKey];
-      if (activeTopId) { newMatches[activeTopId] = bottomId; setActiveTopId(null); }
+      
+      if (activeTopId) {
+        // 情況 A：手上有拿著魔靈要配對。把這條腿原本的主人踢掉，換成新魔靈
+        if (existingTopKey) delete newMatches[existingTopKey];
+        newMatches[activeTopId] = bottomId;
+        setActiveTopId(null);
+      } else {
+        // 情況 B：手上沒有魔靈，單純點擊腿。這代表玩家想「取消」這條腿的配對
+        if (existingTopKey) delete newMatches[existingTopKey];
+      }
       return newMatches;
     });
   };
@@ -122,7 +140,6 @@ export default function App() {
     setNewQText('');
   };
 
-  // 定義配對標籤的專屬顏色
   const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
   return (
@@ -186,33 +203,33 @@ export default function App() {
 
               {currentQuestion?.type === 'match' && !hasAnswered && !isHost && (
                 <div>
-                  <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊上方魔靈再點選下方圖片來配對</p>
-                  
-                  {/* 👇 修改這裡：上排魔靈現在會根據專屬顏色變色，並顯示相同數字 👇 */}
+                  <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊上方魔靈，再點下方圖片來配對 (點擊已配對可取消)</p>
                   <div className="match-grid">
                     {(currentQuestion?.topItems || []).map((item: any, index: number) => {
                       const isActive = activeTopId === item?.id;
                       const isMatched = Boolean(userMatches?.[item?.id]);
-                      const itemColor = topColors[item?.id] || '#fff'; // 取得專屬顏色
+                      const itemColor = topColors[item?.id] || '#fff';
                       
                       return (
                         <div key={item?.id || index} onClick={() => handleTopClick(item?.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive || isMatched ? itemColor : 'transparent' }}>
                           {item?.img && <img src={item.img} alt="top" />}
                           <p>{item?.name || `目標 ${index+1}`}</p>
-                          {isMatched && <div className="match-badge" style={{ background: itemColor }}>{String(item?.id).replace('T', '')}</div>}
+                          {/* 👇 上排標籤只顯示打勾 👇 */}
+                          {isMatched && <div className="match-badge" style={{ background: itemColor }}>✓</div>}
                         </div>
                       );
                     })}
                   </div>
-
                   <div className="match-grid">
                     {(currentQuestion?.bottomItems || []).map((item: any, index: number) => {
                       let matchedTopId: string | null = null;
                       if (userMatches) { for (const k in userMatches) { if (userMatches[k] === item?.id) matchedTopId = k; } }
+                      
                       return (
                         <div key={item?.id || index} onClick={() => handleBottomClick(item?.id)} className="match-item" style={{ borderColor: matchedTopId ? topColors[matchedTopId] : 'transparent' }}>
                           {item?.img && <img src={item.img} alt="bottom" />}
-                          {matchedTopId && <div className="match-badge" style={{ background: topColors[matchedTopId] || '#fff' }}>{String(matchedTopId).replace('T', '')}</div>}
+                          {/* 👇 下排標籤也只顯示打勾，並套用專屬顏色 👇 */}
+                          {matchedTopId && <div className="match-badge" style={{ background: topColors[matchedTopId] || '#fff' }}>✓</div>}
                         </div>
                       );
                     })}
@@ -233,7 +250,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 其餘排行榜、復盤、後台等維持原樣不變 */}
           {viewMode === 'home' && isJoined && leaderboard && (
              <div className="game-panel">
              <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
