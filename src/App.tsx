@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import './index.css'; // 👈 關鍵：獨立引入 CSS，避免打包工具解析錯亂
+import './index.css';
 
 const socket: Socket = io('https://swtest-pgq8.onrender.com'); 
 
@@ -139,7 +139,6 @@ export default function App() {
 
         <div style={{ padding: '0 10px', width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10, paddingBottom: '30px' }}>
           
-          {/* 大廳首頁 */}
           {viewMode === 'home' && !isJoined && (
             <div className="game-panel" style={{ maxWidth: '400px' }}>
               <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#FFD700', cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
@@ -151,7 +150,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 大廳等待中 */}
           {viewMode === 'home' && isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
             <div className="game-panel" style={{ maxWidth: '400px' }}>
               <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
@@ -160,7 +158,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 答題介面 */}
           {viewMode === 'home' && isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
             <div className="game-panel">
               <div style={{ marginBottom: '1rem' }}>
@@ -170,13 +167,14 @@ export default function App() {
                 </div>
               </div>
 
-              <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem', textShadow: '0 2px 5px rgba(0,0,0,1)' }}>{currentQuestion?.text}</h2>
+              <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem', textShadow: '0 2px 5px rgba(0,0,0,1)' }}>
+                {currentQuestion?.text}
+              </h2>
               
               <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
                 <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
               </div>
 
-              {/* 單選題 */}
               {currentQuestion?.type === 'choice' && !hasAnswered && !isHost && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   {(currentQuestion?.options || []).map((opt: any, index: number) => (
@@ -185,7 +183,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* 配對題 */}
               {currentQuestion?.type === 'match' && !hasAnswered && !isHost && (
                 <div>
                   <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊魔靈再點腿來配對</p>
@@ -230,7 +227,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 排名結算 */}
           {viewMode === 'home' && isJoined && leaderboard && (
              <div className="game-panel">
              <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
@@ -244,7 +240,6 @@ export default function App() {
            </div>
           )}
 
-          {/* 復盤 */}
           {viewMode === 'home' && isJoined && reviewData && (
             <div className="game-panel">
               <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>數據復盤</h2>
@@ -264,15 +259,17 @@ export default function App() {
                  <p style={{ color: '#2ecc71', fontSize: '1.2rem' }}>配對題解答已公佈！</p>
               )}
               
-              {isHost && reviewData?.hasNextQuestion ? (
+              {/* 👇 這裡就是元兇！已全數修復為標準的 && 條件判斷 👇 */}
+              {isHost && reviewData?.hasNextQuestion && (
                 <button className="btn-summon" onClick={handleSendQuestion} style={{ marginTop: '1.5rem', background: '#2ecc71' }}>▶️ 下一題</button>
-              ) : isHost ? (
+              )}
+              {isHost && !reviewData?.hasNextQuestion && (
                 <button className="btn-summon" onClick={handleShowPodium} style={{ marginTop: '1.5rem', background: '#f1c40f' }}>🏆 揭曉最終榮耀</button>
               )}
+
             </div>
           )}
 
-          {/* 頒獎台 */}
           {viewMode === 'home' && isJoined && podiumData && (
             <div className="game-panel">
               <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '2rem' }}>傳奇誕生</h2>
@@ -282,7 +279,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 後台介面 */}
           {viewMode === 'adminAuth' && (
             <div className="game-panel" style={{ maxWidth: '400px' }}>
               <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>🔧 進入題庫管理</h2>
