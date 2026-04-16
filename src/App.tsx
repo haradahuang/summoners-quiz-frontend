@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 
 const socket: Socket = io('https://swtest-pgq8.onrender.com'); 
 
-// 🛡️ 錯誤捕捉防護罩：抓出導致白屏的元凶！
+// 防護罩：捕捉崩潰原因
 class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: string }> {
   constructor(props: any) {
     super(props);
@@ -20,10 +20,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
       return (
         <div style={{ padding: '2rem', background: '#2c3e50', color: 'white', minHeight: '100vh', textAlign: 'center' }}>
           <h2 style={{ color: '#e74c3c', marginBottom: '1rem' }}>❌ 畫面渲染發生致命錯誤</h2>
-          <p style={{ background: '#000', padding: '1rem', color: '#e74c3c', borderRadius: '8px', wordBreak: 'break-all' }}>
-            {this.state.errorMsg}
-          </p>
-          <p style={{ marginTop: '1rem', color: '#bdc3c7' }}>請將這個紅色框框裡的錯誤訊息截圖回報！</p>
+          <p style={{ background: '#000', padding: '1rem', color: '#e74c3c', borderRadius: '8px', wordBreak: 'break-all' }}>{this.state.errorMsg}</p>
           <button onClick={() => window.location.reload()} style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer' }}>重新整理</button>
         </div>
       );
@@ -62,7 +59,7 @@ export default function App() {
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    socket.on('player_joined', (data) => { if (!data?.isHost) setPlayers((prev) => [...prev, data?.username]); });
+    socket.on('player_joined', (data) => { if (!data?.isHost) setPlayers((prev) => [...(prev || []), data?.username]); });
     socket.on('receive_question', (q) => { 
       setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
       setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
@@ -73,9 +70,9 @@ export default function App() {
     socket.on('review_updated', setReviewData);
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
 
-    socket.on('admin_auth_success', (bank) => { setQBank(bank); setViewMode('adminPanel'); });
+    socket.on('admin_auth_success', (bank) => { setQBank(bank || []); setViewMode('adminPanel'); });
     socket.on('admin_auth_fail', () => alert('❌ 密碼錯誤！'));
-    socket.on('admin_update_bank', setQBank);
+    socket.on('admin_update_bank', (bank) => setQBank(bank || []));
 
     return () => { socket.off(); };
   }, []);
@@ -158,7 +155,7 @@ export default function App() {
             
             .match-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
             .match-item { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; background: rgba(255,255,255,0.05); }
-            .match-item img { width: 100%; height: 90px; object-fit: cover; display: block; background: rgba(0,0,0,0.5); }
+            .match-item img { width: 100%; height: 90px; object-fit: contain; display: block; background: rgba(0,0,0,0.5); }
             .match-item p { font-size: 0.8rem; padding: 5px; font-weight: bold; text-shadow: 0 1px 3px #000; }
             .match-item.active { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
             .match-badge { position: absolute; top: 0px; right: 0px; width: 25px; height: 25px; border-radius: 0 0 0 10px; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border-left: 2px solid #fff; border-bottom: 2px solid #fff; box-shadow: -2px 2px 5px rgba(0,0,0,0.5); }
@@ -171,7 +168,7 @@ export default function App() {
 
         <div style={{ padding: '0 10px', width: '100%', display: 'flex', justifyContent: 'center', zIndex: 10, paddingBottom: '30px' }}>
           
-          {/* 首頁登入 */}
+          {/* 大廳首頁 */}
           {viewMode === 'home' && !isJoined && (
             <div className="game-panel" style={{ maxWidth: '400px' }}>
               <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#FFD700', cursor: 'pointer', fontWeight: 'bold', marginBottom: '1rem' }}>
@@ -183,16 +180,16 @@ export default function App() {
             </div>
           )}
 
-          {/* 大廳等待 */}
+          {/* 大廳等待中 */}
           {viewMode === 'home' && isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
             <div className="game-panel" style={{ maxWidth: '400px' }}>
               <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
               {isHost ? <button className="btn-summon" onClick={handleSendQuestion}>▶️ 開始試煉</button> : <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待大師開啟試煉...</p>}
-              <p style={{ color: '#bdc3c7', marginTop: '1rem' }}>已進場: {players.length} 人</p>
+              <p style={{ color: '#bdc3c7', marginTop: '1rem' }}>已進場: {(players || []).length} 人</p>
             </div>
           )}
 
-          {/* 答題介面 */}
+          {/* ===================== 答題介面 ===================== */}
           {viewMode === 'home' && isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
             <div className="game-panel">
               <div style={{ marginBottom: '1rem' }}>
@@ -210,14 +207,16 @@ export default function App() {
                 <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
               </div>
 
+              {/* 單選題 */}
               {currentQuestion?.type === 'choice' && !hasAnswered && !isHost && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {(currentQuestion?.options || []).map((opt: any) => (
-                    <button key={opt?.id} onClick={() => handleChoiceClick(opt?.id)} style={{ padding: '1rem', fontSize: '1.1rem', color: '#fff', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', border: 'none', borderLeft: `6px solid ${opt?.color || '#fff'}`, cursor: 'pointer' }}>{opt?.text}</button>
+                  {(currentQuestion?.options || []).map((opt: any, index: number) => (
+                    <button key={opt?.id || index} onClick={() => handleChoiceClick(opt?.id)} style={{ padding: '1rem', fontSize: '1.1rem', color: '#fff', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', border: 'none', borderLeft: `6px solid ${opt?.color || '#fff'}`, cursor: 'pointer' }}>{opt?.text}</button>
                   ))}
                 </div>
               )}
 
+              {/* 配對題 */}
               {currentQuestion?.type === 'match' && !hasAnswered && !isHost && (
                 <div>
                   <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊魔靈再點腿來配對</p>
@@ -266,7 +265,7 @@ export default function App() {
           {viewMode === 'home' && isJoined && leaderboard && (
              <div className="game-panel">
              <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
-             {Array.isArray(leaderboard) && leaderboard.map((player: any, index: number) => (
+             {(leaderboard || []).map((player: any, index: number) => (
                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem', borderRadius: '8px', borderLeft: index === 0 ? '5px solid #FFD700' : '5px solid #444', fontSize: '1.1rem' }}>
                  <span style={{ color: '#FFF' }}>#{index + 1} {player?.username}</span>
                  <span style={{ color: '#FFD700', fontWeight: 'bold' }}>{player?.score}</span>
@@ -282,10 +281,10 @@ export default function App() {
               <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>數據復盤</h2>
               {reviewData?.question?.type === 'choice' ? (
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                   {(reviewData?.question?.options || []).map((opt: any) => {
+                   {(reviewData?.question?.options || []).map((opt: any, index: number) => {
                      const isCorrect = opt?.id === reviewData?.question?.correctAnswer;
                      return (
-                       <div key={opt?.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isCorrect ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isCorrect ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}>
+                       <div key={opt?.id || index} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isCorrect ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isCorrect ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}>
                          <span style={{ color: isCorrect ? '#2ecc71' : '#fff' }}>{isCorrect && '✔️ '} {opt?.text}</span>
                          <span style={{ color: '#bdc3c7' }}>{reviewData?.stats?.[opt?.id] || 0} 人</span>
                        </div>
@@ -314,7 +313,7 @@ export default function App() {
             </div>
           )}
 
-          {/* 後台介面維持隱藏，需點右上角進入 */}
+          {/* 後台介面 */}
           {viewMode === 'adminAuth' && (
             <div className="game-panel" style={{ maxWidth: '400px' }}>
               <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>🔧 進入題庫管理</h2>
@@ -350,6 +349,15 @@ export default function App() {
                   </>
                 )}
                 <button className="btn-summon" onClick={handleAddQuestion} style={{ marginTop: '10px', background: '#2ecc71' }}>💾 儲存題目</button>
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {(qBank || []).map((q: any, idx: number) => (
+                  <div key={q?.id || idx} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', textAlign: 'left', borderLeft: `4px solid ${q?.type==='match'?'#9b59b6':'#FFD700'}`, position: 'relative' }}>
+                    <p style={{ fontWeight: 'bold' }}>Q{idx + 1} [{q?.type==='match'?'配對':'單選'}]. {q?.text}</p>
+                    <button onClick={() => socket.emit('admin_del_q', q?.id)} style={{ position: 'absolute', top: '10px', right: '10px', background: '#e74c3c', color: 'white', border: 'none', padding: '5px', borderRadius: '5px' }}>刪除</button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
