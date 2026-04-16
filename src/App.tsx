@@ -18,16 +18,49 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
 // ==========================================
-// 🏆 動態排行榜元件 (共用)
+// 🏆 動態洗牌排行榜引擎 (核心升級！)
 // ==========================================
+// 用來紀錄「上一次」的排名，讓元件知道要從哪裡開始動畫
+let globalLastLeaderboard: any[] = [];
+
 const LeaderboardView = ({ data }: { data: any[] }) => {
+  const [displayRanks, setDisplayRanks] = useState(() => {
+    // 初始化位置：尋找該玩家上一次的排名
+    return data.map((player) => {
+      const oldIndex = globalLastLeaderboard.findIndex(p => p.username === player.username);
+      return {
+        ...player,
+        currentIdx: oldIndex !== -1 ? oldIndex : data.length, // 如果是新進榜，從最下面進場
+        opacity: oldIndex !== -1 ? 1 : 0
+      };
+    });
+  });
+
+  useEffect(() => {
+    // 渲染後 50 毫秒觸發動畫，讓元素平滑移動到最新排名
+    const timer = setTimeout(() => {
+      setDisplayRanks(data.map((player, idx) => ({
+        ...player,
+        currentIdx: idx,
+        opacity: 1
+      })));
+      globalLastLeaderboard = data; // 更新歷史排名紀錄
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [data]);
+
   return (
-    <div style={{ position: 'relative', height: `${data.length * 70}px`, transition: 'height 0.3s', marginBottom: '10px' }}>
-      {data.map((player: any, idx: number) => {
+    <div style={{ position: 'relative', height: `${data.length * 70}px`, transition: 'height 0.3s', marginBottom: '20px' }}>
+      {displayRanks.map((player) => {
+        const idx = player.currentIdx; // 動畫當前位置
+        const finalIdx = data.findIndex(p => p.username === player.username); // 最終真實排名
+        
+        // 前三名專屬樣式設定
+        const isTop3 = finalIdx < 3;
         const rankColors = ['#FFD700', '#bdc3c7', '#e67e22'];
-        const rankColor = idx < 3 ? rankColors[idx] : '#444';
-        const fontSize = idx === 0 ? '1.6rem' : idx === 1 ? '1.4rem' : idx === 2 ? '1.2rem' : '1.05rem';
-        const fontWeight = idx < 3 ? '900' : 'bold';
+        const rankColor = isTop3 ? rankColors[finalIdx] : '#444';
+        const fontSize = finalIdx === 0 ? '1.6rem' : finalIdx === 1 ? '1.4rem' : finalIdx === 2 ? '1.2rem' : '1.05rem';
+        const fontWeight = isTop3 ? '900' : 'bold';
         
         return (
           <div key={player.username} style={{ 
@@ -36,7 +69,8 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
             left: 0, 
             width: '100%', 
             height: '60px',
-            transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)', 
+            opacity: player.opacity,
+            transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', // 帶有彈性的貝茲曲線動畫
             display: 'flex', 
             justifyContent: 'space-between', 
             alignItems: 'center',
@@ -44,16 +78,17 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
             background: 'rgba(255,255,255,0.05)', 
             borderRadius: '8px', 
             borderLeft: `5px solid ${rankColor}`, 
-            zIndex: 10 - idx
+            zIndex: 20 - finalIdx
           }}>
-            <span style={{ color: idx < 3 ? rankColor : '#FFF', fontSize, fontWeight }}>#{idx + 1} {player.username}</span>
-            <span style={{ color: idx < 3 ? rankColor : '#FFD700', fontSize, fontWeight }}>{player.score} 分</span>
+            <span style={{ color: isTop3 ? rankColor : '#FFF', fontSize, fontWeight, transition: 'all 0.5s' }}>#{finalIdx + 1} {player.username}</span>
+            <span style={{ color: isTop3 ? rankColor : '#FFD700', fontSize, fontWeight, transition: 'all 0.5s' }}>{player.score} 分</span>
           </div>
         );
       })}
     </div>
   );
 };
+
 
 // ==========================================
 // 🎮 玩家端介面 (Player View)
@@ -88,7 +123,7 @@ function PlayerApp() {
     
     socket.on('answer_result', setAnswerResult);
     socket.on('leaderboard_updated', setLeaderboard);
-    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); });
+    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); // 隱藏排行榜
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
     socket.on('join_error', (msg) => { alert(msg); setIsJoined(false); });
     return () => { socket.off(); };
@@ -199,7 +234,6 @@ function PlayerApp() {
         </div>
       )}
 
-      {/* 👇 加入新的動態排行榜元件 👇 */}
       {isJoined && leaderboard && !reviewData && !podiumData && (
          <div className="game-panel">
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
@@ -291,7 +325,7 @@ function AdminApp() {
     socket.on('update_players', (list) => setPlayers(list || []));
     socket.on('receive_question', (q) => { setCurrentQuestion(q); setLeaderboard(null); setReviewData(null); setPodiumData(null); });
     socket.on('leaderboard_updated', setLeaderboard);
-    // 👇 確保收到解答資料時，排行榜狀態會被清空隱藏 👇
+    // 👇 確保收到答案時，一定把排行榜清掉 👇
     socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); 
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
     return () => { socket.off(); };
@@ -335,6 +369,7 @@ function AdminApp() {
   const handleAddQuestion = () => {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: Date.now(), type: qType, text: newQText, timeLimit: newTime };
+    
     if (qType === 'choice') {
       if (!newOptA.trim() || !newOptB.trim()) return alert('單選題請至少填寫 A 與 B 兩個選項！');
       const options = [];
@@ -426,7 +461,7 @@ function AdminApp() {
               </div>
             )}
 
-            {/* 👇 主持人排行榜同步：套用動態元件 👇 */}
+            {/* 👇 主持人排行榜同步：套用動態引擎，且保證與答案互斥 👇 */}
             {leaderboard && !reviewData && !podiumData && (
               <div>
                 <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
@@ -435,6 +470,7 @@ function AdminApp() {
               </div>
             )}
 
+            {/* 👇 主持人正確答案畫面 👇 */}
             {reviewData && (
               <div>
                 <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
