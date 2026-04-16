@@ -122,6 +122,7 @@ export default function App() {
     setNewQText('');
   };
 
+  // 定義配對標籤的專屬顏色
   const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
   return (
@@ -185,20 +186,25 @@ export default function App() {
 
               {currentQuestion?.type === 'match' && !hasAnswered && !isHost && (
                 <div>
-                  <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊魔靈再點腿來配對</p>
+                  <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊上方魔靈再點選下方圖片來配對</p>
+                  
+                  {/* 👇 修改這裡：上排魔靈現在會根據專屬顏色變色，並顯示相同數字 👇 */}
                   <div className="match-grid">
                     {(currentQuestion?.topItems || []).map((item: any, index: number) => {
                       const isActive = activeTopId === item?.id;
                       const isMatched = Boolean(userMatches?.[item?.id]);
+                      const itemColor = topColors[item?.id] || '#fff'; // 取得專屬顏色
+                      
                       return (
-                        <div key={item?.id || index} onClick={() => handleTopClick(item?.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive ? topColors[item?.id] : (isMatched ? '#2ecc71' : 'transparent') }}>
+                        <div key={item?.id || index} onClick={() => handleTopClick(item?.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive || isMatched ? itemColor : 'transparent' }}>
                           {item?.img && <img src={item.img} alt="top" />}
                           <p>{item?.name || `目標 ${index+1}`}</p>
-                          {isMatched && <div className="match-badge" style={{ background: '#2ecc71' }}>✓</div>}
+                          {isMatched && <div className="match-badge" style={{ background: itemColor }}>{String(item?.id).replace('T', '')}</div>}
                         </div>
                       );
                     })}
                   </div>
+
                   <div className="match-grid">
                     {(currentQuestion?.bottomItems || []).map((item: any, index: number) => {
                       let matchedTopId: string | null = null;
@@ -227,6 +233,7 @@ export default function App() {
             </div>
           )}
 
+          {/* 其餘排行榜、復盤、後台等維持原樣不變 */}
           {viewMode === 'home' && isJoined && leaderboard && (
              <div className="game-panel">
              <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
@@ -259,14 +266,12 @@ export default function App() {
                  <p style={{ color: '#2ecc71', fontSize: '1.2rem' }}>配對題解答已公佈！</p>
               )}
               
-              {/* 👇 這裡就是元兇！已全數修復為標準的 && 條件判斷 👇 */}
               {isHost && reviewData?.hasNextQuestion && (
                 <button className="btn-summon" onClick={handleSendQuestion} style={{ marginTop: '1.5rem', background: '#2ecc71' }}>▶️ 下一題</button>
               )}
               {isHost && !reviewData?.hasNextQuestion && (
                 <button className="btn-summon" onClick={handleShowPodium} style={{ marginTop: '1.5rem', background: '#f1c40f' }}>🏆 揭曉最終榮耀</button>
               )}
-
             </div>
           )}
 
