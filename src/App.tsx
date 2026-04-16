@@ -42,7 +42,6 @@ function PlayerApp() {
     socket.on('update_players', (list) => setPlayers(list || []));
     
     socket.on('receive_question', (q) => { 
-      // 👇 神級優化：在玩家端接收題目時，自動打亂下方圖片的順序，增加遊戲性！
       if (q.type === 'match' && q.bottomItems) {
         q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
       }
@@ -237,7 +236,7 @@ function AdminApp() {
   const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
   const [newOptC, setNewOptC] = useState(''); const [newOptD, setNewOptD] = useState('');
   const [newAns, setNewAns] = useState('A');
-  // 配對題用 (防呆對應：由玩家按順序填寫 T1-B1, T2-B2...)
+  // 配對題用
   const [matchPairs, setMatchPairs] = useState([
     { tName: '', tImg: '', bImg: '' },
     { tName: '', tImg: '', bImg: '' },
@@ -310,20 +309,31 @@ function AdminApp() {
     let newQ: any = { id: Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
     if (qType === 'choice') {
-      if (!newOptA || !newOptB || !newOptC || !newOptD) return alert('請填寫所有四個選項！');
+      // 👇 彈性選項邏輯：只要求填寫 A 和 B，動態過濾空選項
+      if (!newOptA.trim() || !newOptB.trim()) return alert('單選題請至少填寫 A 與 B 兩個選項！');
+      
+      const options = [];
+      if (newOptA.trim()) options.push({ id: 'A', text: newOptA, color: '#e53e3e' });
+      if (newOptB.trim()) options.push({ id: 'B', text: newOptB, color: '#3182ce' });
+      if (newOptC.trim()) options.push({ id: 'C', text: newOptC, color: '#d69e2e' });
+      if (newOptD.trim()) options.push({ id: 'D', text: newOptD, color: '#805ad5' });
+
+      // 防呆：檢查選定的正確解答是否存在於有效選項中
+      if (!options.find(o => o.id === newAns)) {
+        return alert(`您設定的正解是 ${newAns}，但您沒有填寫該選項的內容！`);
+      }
+
       newQ.correctAnswer = newAns;
-      newQ.options = [ { id: 'A', text: newOptA, color: '#e53e3e' }, { id: 'B', text: newOptB, color: '#3182ce' }, { id: 'C', text: newOptC, color: '#d69e2e' }, { id: 'D', text: newOptD, color: '#805ad5' } ];
+      newQ.options = options;
     } else {
-      // 驗證配對題表單
       const isComplete = matchPairs.every(p => p.tName && p.tImg && p.bImg);
       if (!isComplete) return alert('請確保 4 組配對的名字與圖片網址都有填寫！');
       newQ.topItems = matchPairs.map((p, i) => ({ id: `T${i+1}`, name: p.tName, img: p.tImg }));
       newQ.bottomItems = matchPairs.map((p, i) => ({ id: `B${i+1}`, img: p.bImg }));
-      newQ.correctMatches = { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' }; // 後台設定死對應邏輯，前端顯示時會打亂
+      newQ.correctMatches = { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' };
     }
 
     setEditingPack({ ...editingPack, questions: [...editingPack.questions, newQ] });
-    // 清空表單
     setNewQText(''); setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD('');
     setMatchPairs([{ tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }]);
   };
@@ -352,7 +362,6 @@ function AdminApp() {
   }
 
   if (hostingPin) {
-    // 控場模式
     return (
       <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
         <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -375,7 +384,6 @@ function AdminApp() {
   }
 
   if (editingPack) {
-    // 編輯器模式
     return (
       <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -385,7 +393,6 @@ function AdminApp() {
 
         <input type="text" value={editingPack.title} onChange={(e) => setEditingPack({...editingPack, title: e.target.value})} placeholder="請輸入題庫包名稱 (如: 週末公會大賽)" className="game-input" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f1c40f' }} />
 
-        {/* 題目列表 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           {editingPack.questions.length === 0 ? <p style={{color: '#888'}}>目前沒有題目，請在下方新增！</p> : 
            editingPack.questions.map((q: any, idx: number) => (
@@ -399,7 +406,6 @@ function AdminApp() {
           ))}
         </div>
 
-        {/* 新增題目表單 */}
         <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '10px', marginTop: '2rem', border: '1px dashed #7f8c8d' }}>
           <h3 style={{ color: '#2ecc71', marginBottom: '15px' }}>➕ 新增一題</h3>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
@@ -415,10 +421,10 @@ function AdminApp() {
           {qType === 'choice' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
-                <input type="text" placeholder="選項 A" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 B" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 C" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 D" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 A (必填)" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 B (必填)" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 C (選填)" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 D (選填)" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
               </div>
               <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ color: '#fff' }}>正確解答:</span>
@@ -452,7 +458,6 @@ function AdminApp() {
     );
   }
 
-  // 管理主儀表板模式
   return (
     <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
