@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useSearchParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import './index.css';
 
@@ -40,7 +40,17 @@ function PlayerApp() {
 
   useEffect(() => {
     socket.on('update_players', (list) => setPlayers(list || []));
-    socket.on('receive_question', (q) => { setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); setUserMatches({}); setActiveTopId(null); });
+    
+    socket.on('receive_question', (q) => { 
+      // 👇 神級優化：在玩家端接收題目時，自動打亂下方圖片的順序，增加遊戲性！
+      if (q.type === 'match' && q.bottomItems) {
+        q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
+      }
+      setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
+      setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
+      setUserMatches({}); setActiveTopId(null); 
+    });
+    
     socket.on('answer_result', setAnswerResult);
     socket.on('leaderboard_updated', setLeaderboard);
     socket.on('review_updated', setReviewData);
@@ -206,7 +216,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 管理端介面 (Admin View)
+// 👑 專屬管理端介面 (Admin UI Builder)
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -215,10 +225,26 @@ function AdminApp() {
   const [password, setPassword] = useState('');
   
   const [quizPacks, setQuizPacks] = useState<any[]>([]);
+  const [editingPack, setEditingPack] = useState<any>(null); // 控制是否進入編輯模式
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   
-  // 控場狀態
+  // 編輯器表單狀態
+  const [qType, setQType] = useState<'choice' | 'match'>('choice');
+  const [newQText, setNewQText] = useState('');
+  const [newTime, setNewTime] = useState(15);
+  // 單選題用
+  const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
+  const [newOptC, setNewOptC] = useState(''); const [newOptD, setNewOptD] = useState('');
+  const [newAns, setNewAns] = useState('A');
+  // 配對題用 (防呆對應：由玩家按順序填寫 T1-B1, T2-B2...)
+  const [matchPairs, setMatchPairs] = useState([
+    { tName: '', tImg: '', bImg: '' },
+    { tName: '', tImg: '', bImg: '' },
+    { tName: '', tImg: '', bImg: '' },
+    { tName: '', tImg: '', bImg: '' }
+  ]);
+
   const [players, setPlayers] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<any[] | null>(null);
@@ -248,8 +274,7 @@ function AdminApp() {
     const endpoint = authMode === 'login' ? '/login' : '/register';
     try {
       const res = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password })
       });
       const data = await res.json();
       if (res.ok) {
@@ -259,20 +284,61 @@ function AdminApp() {
     } catch (e) { alert('伺服器連線失敗'); }
   };
 
-  const handleCreateDummyPack = async () => {
-    // 建立一個預設題庫包來測試
-    const dummyData = {
-      title: "我的第一個魔靈題庫", author: adminUser,
-      questions: [
-        { id: 1, type: 'choice', text: "風屬性小丑的覺醒名稱是？", correctAnswer: 'A', options: [ { id: 'A', text: "盧森", color: '#e53e3e' }, { id: 'B', text: "朱力", color: '#3182ce' } ], timeLimit: 15 }
-      ]
-    };
-    await fetch(`${API_URL}/quizzes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dummyData) });
-    fetchQuizzes(adminUser!);
-  };
-
   const handleHostGame = (packId: string) => { socket.emit('host_create_room', packId); };
 
+  // ==================== 題庫編輯器邏輯 ====================
+  const handleCreateNewPack = () => {
+    setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] });
+  };
+
+  const handleSavePack = async () => {
+    if (!editingPack.title.trim()) return alert('請填寫題庫包名稱！');
+    try {
+      const res = await fetch(`${API_URL}/quizzes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPack)
+      });
+      if (res.ok) {
+        alert('💾 題庫包儲存成功！');
+        setEditingPack(null); // 回到大廳
+        fetchQuizzes(adminUser!);
+      }
+    } catch(e) { alert('儲存失敗'); }
+  };
+
+  const handleAddQuestion = () => {
+    if (!newQText.trim()) return alert('請填寫題目敘述！');
+    let newQ: any = { id: Date.now(), type: qType, text: newQText, timeLimit: newTime };
+    
+    if (qType === 'choice') {
+      if (!newOptA || !newOptB || !newOptC || !newOptD) return alert('請填寫所有四個選項！');
+      newQ.correctAnswer = newAns;
+      newQ.options = [ { id: 'A', text: newOptA, color: '#e53e3e' }, { id: 'B', text: newOptB, color: '#3182ce' }, { id: 'C', text: newOptC, color: '#d69e2e' }, { id: 'D', text: newOptD, color: '#805ad5' } ];
+    } else {
+      // 驗證配對題表單
+      const isComplete = matchPairs.every(p => p.tName && p.tImg && p.bImg);
+      if (!isComplete) return alert('請確保 4 組配對的名字與圖片網址都有填寫！');
+      newQ.topItems = matchPairs.map((p, i) => ({ id: `T${i+1}`, name: p.tName, img: p.tImg }));
+      newQ.bottomItems = matchPairs.map((p, i) => ({ id: `B${i+1}`, img: p.bImg }));
+      newQ.correctMatches = { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' }; // 後台設定死對應邏輯，前端顯示時會打亂
+    }
+
+    setEditingPack({ ...editingPack, questions: [...editingPack.questions, newQ] });
+    // 清空表單
+    setNewQText(''); setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD('');
+    setMatchPairs([{ tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }]);
+  };
+
+  const handleDeleteQuestion = (idToRemove: number) => {
+    setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) });
+  };
+
+  const updateMatchPair = (index: number, field: string, value: string) => {
+    const newPairs = [...matchPairs];
+    newPairs[index] = { ...newPairs[index], [field]: value };
+    setMatchPairs(newPairs);
+  };
+
+  // ==================== 渲染畫面 ====================
   if (!adminUser) {
     return (
       <div className="game-panel" style={{ maxWidth: '400px', margin: '0 auto' }}>
@@ -280,9 +346,7 @@ function AdminApp() {
         <input type="text" placeholder="帳號" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
         <input type="password" placeholder="密碼" value={password} onChange={(e) => setPassword(e.target.value)} className="game-input" />
         <button className="btn-summon" onClick={handleAuth}>{authMode === 'login' ? '登入' : '註冊'}</button>
-        <p style={{ marginTop: '10px', cursor: 'pointer', color: '#3498db' }} onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>
-          {authMode === 'login' ? '沒有帳號？點此註冊' : '已有帳號？點此登入'}
-        </p>
+        <p style={{ marginTop: '10px', cursor: 'pointer', color: '#3498db' }} onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? '沒有帳號？點此註冊' : '已有帳號？點此登入'}</p>
       </div>
     );
   }
@@ -298,35 +362,105 @@ function AdminApp() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center', margin: '10px 0' }}>
           {(players || []).map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.1)', padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', color: '#FFD700' }}>{p.username} ({p.score})</span>)}
         </div>
-
         <hr style={{ borderColor: '#444', margin: '20px 0' }}/>
-
         {!currentQuestion && !leaderboard && !reviewData && !podiumData && <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)}>▶️ 發送題目</button>}
-        
         {currentQuestion && !leaderboard && !reviewData && !podiumData && (
-          <div>
-            <h3 style={{ color: '#fff' }}>題目作答中...</h3>
-            <button className="btn-summon" onClick={() => socket.emit('host_show_leaderboard', hostingPin)} style={{ background: '#9b59b6', marginTop: '15px' }}>📊 結算當前排名</button>
-          </div>
+          <div><h3 style={{ color: '#fff' }}>題目作答中...</h3><button className="btn-summon" onClick={() => socket.emit('host_show_leaderboard', hostingPin)} style={{ background: '#9b59b6', marginTop: '15px' }}>📊 結算當前排名</button></div>
         )}
-
         {leaderboard && <button className="btn-summon" onClick={() => socket.emit('host_show_review', hostingPin)} style={{ background: '#34495e', marginTop: '15px' }}>🔍 檢視戰報</button>}
-        
         {reviewData && reviewData.hasNextQuestion && <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button>}
         {reviewData && !reviewData.hasNextQuestion && <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
       </div>
     );
   }
 
-  // 儀表板模式
+  if (editingPack) {
+    // 編輯器模式
+    return (
+      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h2 style={{ color: '#FFD700' }}>✏️ 題庫包編輯器</h2>
+          <button onClick={() => setEditingPack(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>放棄並返回</button>
+        </div>
+
+        <input type="text" value={editingPack.title} onChange={(e) => setEditingPack({...editingPack, title: e.target.value})} placeholder="請輸入題庫包名稱 (如: 週末公會大賽)" className="game-input" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f1c40f' }} />
+
+        {/* 題目列表 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
+          {editingPack.questions.length === 0 ? <p style={{color: '#888'}}>目前沒有題目，請在下方新增！</p> : 
+           editingPack.questions.map((q: any, idx: number) => (
+            <div key={q.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ background: q.type==='choice'?'#3498db':'#9b59b6', padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', marginRight: '10px' }}>{q.type==='choice'?'單選':'配對'}</span>
+                <strong>Q{idx + 1}. {q.text}</strong>
+              </div>
+              <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px' }}>刪除</button>
+            </div>
+          ))}
+        </div>
+
+        {/* 新增題目表單 */}
+        <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '10px', marginTop: '2rem', border: '1px dashed #7f8c8d' }}>
+          <h3 style={{ color: '#2ecc71', marginBottom: '15px' }}>➕ 新增一題</h3>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+            <select value={qType} onChange={(e) => setQType(e.target.value as any)} className="game-input" style={{ flex: 1 }}>
+              <option value="choice">單選題</option>
+              <option value="match">圖片配對題</option>
+            </select>
+            <input type="number" placeholder="秒數" value={newTime} onChange={(e) => setNewTime(Number(e.target.value))} className="game-input" style={{ width: '80px' }} title="作答時間(秒)" />
+          </div>
+          
+          <input type="text" placeholder="請輸入題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
+
+          {qType === 'choice' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                <input type="text" placeholder="選項 A" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 B" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 C" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 D" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+              </div>
+              <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#fff' }}>正確解答:</span>
+                <select value={newAns} onChange={(e) => setNewAns(e.target.value)} className="game-input" style={{ width: '100px', marginBottom: 0 }}>
+                  <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {qType === 'match' && (
+            <div style={{ textAlign: 'left', marginTop: '10px' }}>
+              <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>* 請依照正確配對組合填寫，系統發送題目時會自動為玩家打亂圖片順序！</p>
+              {matchPairs.map((pair, index) => (
+                <div key={index} style={{ display: 'flex', gap: '5px', marginBottom: '5px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '5px', borderRadius: '5px' }}>
+                  <span style={{ color: '#fff', width: '20px' }}>{index+1}.</span>
+                  <input type="text" placeholder="魔靈名字" value={pair.tName} onChange={e => updateMatchPair(index, 'tName', e.target.value)} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 1 }} />
+                  <input type="text" placeholder="魔靈圖片網址 (.jpg)" value={pair.tImg} onChange={e => updateMatchPair(index, 'tImg', e.target.value)} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 2 }} />
+                  <span style={{ color: '#2ecc71', margin: '0 5px' }}>🔗</span>
+                  <input type="text" placeholder="目標美腿網址 (.jpg)" value={pair.bImg} onChange={e => updateMatchPair(index, 'bImg', e.target.value)} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 2 }} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button className="btn-summon" onClick={handleAddQuestion} style={{ marginTop: '15px', background: '#3498db', fontSize: '1rem', padding: '10px' }}>加入這題至題庫包</button>
+        </div>
+
+        <button className="btn-summon" onClick={handleSavePack} style={{ marginTop: '20px', background: '#2ecc71' }}>💾 儲存並發布題庫包</button>
+      </div>
+    );
+  }
+
+  // 管理主儀表板模式
   return (
     <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-        <h2 style={{ color: '#FFD700' }}>📚 歡迎, {adminUser}</h2>
+        <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板 ({adminUser})</h2>
         <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
       </div>
       
-      <button className="btn-summon" onClick={handleCreateDummyPack} style={{ background: '#2ecc71', marginBottom: '20px' }}>➕ 新增題庫包 (測試用)</button>
+      <button className="btn-summon" onClick={handleCreateNewPack} style={{ background: '#2ecc71', marginBottom: '20px' }}>➕ 建立全新的題庫包</button>
 
       <div style={{ display: 'grid', gap: '15px' }}>
         {quizPacks.map(pack => (
@@ -335,10 +469,13 @@ function AdminApp() {
               <h3 style={{ color: '#fff' }}>{pack.title}</h3>
               <p style={{ color: '#bdc3c7', fontSize: '0.9rem' }}>共 {pack.questions.length} 題</p>
             </div>
-            <button className="btn-summon" onClick={() => handleHostGame(pack._id)} style={{ width: 'auto', padding: '10px 20px', background: '#e67e22' }}>🚀 開房</button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button className="btn-summon" onClick={() => setEditingPack(pack)} style={{ width: 'auto', padding: '10px 20px', background: '#3498db' }}>編輯</button>
+              <button className="btn-summon" onClick={() => handleHostGame(pack._id)} style={{ width: 'auto', padding: '10px 20px', background: '#e67e22' }}>🚀 開房</button>
+            </div>
           </div>
         ))}
-        {quizPacks.length === 0 && <p>目前沒有題庫，點擊上方按鈕建立一個吧！</p>}
+        {quizPacks.length === 0 && <p style={{ color: '#888' }}>目前沒有任何題庫包，點擊上方按鈕建立一個吧！</p>}
       </div>
     </div>
   );
