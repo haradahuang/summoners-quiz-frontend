@@ -7,15 +7,20 @@ const API_URL = 'https://swtest-pgq8.onrender.com/api';
 const socket: Socket = io('https://swtest-pgq8.onrender.com');
 
 // ==========================================
-// 🎵 全域音效引擎 (修復版)
+// 🎵 全域音效引擎 (終極版)
 // ==========================================
 const sfx = {
-  // BGM (換成著名的綜藝益智神曲 Sneaky Snitch，保證不會失效)
+  // BGM (益智節目神曲)
   bgm: new Audio('https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3'),
-  // 滴答聲 (換成極短促的 UI 點擊聲，絕不拖泥帶水)
+  // 倒數滴答聲
   tick: new Audio('https://actions.google.com/sounds/v1/ui/button_click.ogg'),
-  correct: new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg'),
+  // 👇 答對音效 (換成經典清脆的遊戲過關叮咚聲)
+  correct: new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'),
+  // 答錯音效
   wrong: new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg'),
+  // 👇 頒獎台專屬勝利音樂
+  victory: new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'),
+  // 頒獎台群眾歡呼聲
   cheer: new Audio('https://actions.google.com/sounds/v1/crowds/crowd_cheering.ogg')
 };
 
@@ -24,16 +29,21 @@ sfx.bgm.volume = 0.3;
 sfx.tick.volume = 0.6;
 sfx.correct.volume = 0.8;
 sfx.wrong.volume = 0.8;
+sfx.victory.volume = 0.7;
 sfx.cheer.volume = 0.9;
 
-// 🔓 破冰解鎖器：破解瀏覽器防止自動播放的限制
+// 🔓 強化版破冰解鎖器：確保 Safari/iOS 也能完美預載所有聲音
 const unlockAudio = () => {
   Object.values(sfx).forEach(audio => {
-    if (audio !== sfx.bgm) {
-      audio.muted = true;
-      audio.play().then(() => { audio.pause(); audio.muted = false; }).catch(() => {});
-    }
+    audio.muted = true;
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+    }).catch(() => {});
   });
+  // 單獨將 BGM 解除靜音並播放
+  sfx.bgm.muted = false;
   sfx.bgm.play().catch(()=>{});
 };
 
@@ -112,13 +122,16 @@ function PlayerApp() {
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
 
-  // BGM 與 歡呼聲控制
+  // BGM 與 頒獎典禮控制 (玩家端)
   useEffect(() => {
     if (isJoined && !podiumData) sfx.bgm.play().catch(()=>{});
-    if (podiumData) { sfx.bgm.pause(); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
+    if (podiumData) { 
+      sfx.bgm.pause(); 
+      sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{});
+      sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); 
+    }
   }, [isJoined, podiumData]);
 
-  // 答對/答錯音效
   useEffect(() => {
     if (answerResult) {
       if (answerResult.isCorrect) { sfx.correct.currentTime = 0; sfx.correct.play().catch(()=>{}); }
@@ -142,26 +155,18 @@ function PlayerApp() {
     return () => { socket.off(); };
   }, []);
 
-  // 👇 修復後的倒數滴答聲邏輯 👇
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
-    
-    // 只有在「尚未答題」且「時間大於 0」且「還在作答畫面」時才倒數
     if (currentQuestion && timeLeft > 0 && !hasAnswered && !leaderboard && !reviewData && !podiumData) {
       timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000); 
-      if (timeLeft <= 5) { 
-        sfx.tick.currentTime = 0; 
-        sfx.tick.play().catch(()=>{}); 
-      }
+      if (timeLeft <= 5) { sfx.tick.currentTime = 0; sfx.tick.play().catch(()=>{}); }
     } else {
-      // 只要答題完成、時間到、或是跳到排行榜，立刻強制停止滴答聲！
       sfx.tick.pause();
     }
 
     if (timeLeft === 0 && currentQuestion && !hasAnswered) {
       setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: currentQuestion?.type === 'match' ? userMatches : '' });
     }
-    
     return () => clearTimeout(timerId);
   }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData]);
 
@@ -169,13 +174,12 @@ function PlayerApp() {
     if (username.trim() && pin.trim()) { 
       socket.emit('join_room', { pin, username }); 
       setIsJoined(true); 
-      unlockAudio(); // 呼叫破冰解鎖器
+      unlockAudio(); 
     } 
   };
   
   const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
   const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
-
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
   const handleBottomClick = (bottomId: string) => { setUserMatches(prev => { const newMatches = { ...prev }; let existingTopKey = null; for (const key in newMatches) { if (newMatches[key] === bottomId) existingTopKey = key; } if (activeTopId) { if (existingTopKey) delete newMatches[existingTopKey]; newMatches[activeTopId] = bottomId; setActiveTopId(null); } else { if (existingTopKey) delete newMatches[existingTopKey]; } return newMatches; }); };
 
@@ -208,14 +212,12 @@ function PlayerApp() {
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
-          
           <div style={{ marginBottom: '1rem' }}>
             <p style={{ color: '#34db98', fontSize: '1rem', marginBottom: '5px', fontWeight: 'bold' }}>戰局進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}</p>
             <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px' }}>
               <div style={{ height: '100%', background: '#FFD700', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s', borderRadius: '3px' }} />
             </div>
           </div>
-
           <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem' }}>{currentQuestion?.text}</h2>
           <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
@@ -355,9 +357,14 @@ function AdminApp() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
 
+  // BGM 與 頒獎典禮控制 (主持人端)
   useEffect(() => {
     if (hostingPin && !podiumData) sfx.bgm.play().catch(()=>{});
-    if (podiumData) { sfx.bgm.pause(); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
+    if (podiumData) { 
+      sfx.bgm.pause(); 
+      sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{});
+      sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); 
+    }
   }, [hostingPin, podiumData]);
 
   useEffect(() => {
@@ -392,7 +399,7 @@ function AdminApp() {
 
   const handleHostGame = (packId: string) => { 
     socket.emit('host_create_room', packId); 
-    unlockAudio(); // 呼叫破冰解鎖器
+    unlockAudio(); // 解鎖並預載所有音效
   };
 
   const handleDeletePack = async (packId: string) => {
@@ -452,7 +459,6 @@ function AdminApp() {
 
     return (
       <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
-        
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
