@@ -6,6 +6,30 @@ import './index.css';
 const API_URL = 'https://swtest-pgq8.onrender.com/api';
 const socket: Socket = io('https://swtest-pgq8.onrender.com');
 
+// ==========================================
+// 🎵 全域音效引擎 (Sound Effects Engine)
+// ==========================================
+const sfx = {
+  // BGM (懸疑史詩感)
+  bgm: new Audio('https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3'),
+  // 倒數計時 (滴答聲)
+  tick: new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'),
+  // 答對 (清脆叮咚)
+  correct: new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg'),
+  // 答錯 (滑稽彈簧)
+  wrong: new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg'),
+  // 頒獎歡呼
+  cheer: new Audio('https://actions.google.com/sounds/v1/crowds/crowd_cheering.ogg')
+};
+
+// 音量與循環設定
+sfx.bgm.loop = true;
+sfx.bgm.volume = 0.3;  // BGM 音量調低，避免蓋過音效
+sfx.tick.volume = 0.4;
+sfx.correct.volume = 0.8;
+sfx.wrong.volume = 0.8;
+sfx.cheer.volume = 0.9;
+
 class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: string }> {
   constructor(props: any) { super(props); this.state = { hasError: false, errorMsg: '' }; }
   static getDerivedStateFromError(error: any) { return { hasError: true, errorMsg: error.toString() }; }
@@ -18,33 +42,21 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
 // ==========================================
-// 🏆 動態洗牌排行榜引擎 (核心升級！)
+// 🏆 動態洗牌排行榜引擎
 // ==========================================
-// 用來紀錄「上一次」的排名，讓元件知道要從哪裡開始動畫
 let globalLastLeaderboard: any[] = [];
-
 const LeaderboardView = ({ data }: { data: any[] }) => {
   const [displayRanks, setDisplayRanks] = useState(() => {
-    // 初始化位置：尋找該玩家上一次的排名
     return data.map((player) => {
       const oldIndex = globalLastLeaderboard.findIndex(p => p.username === player.username);
-      return {
-        ...player,
-        currentIdx: oldIndex !== -1 ? oldIndex : data.length, // 如果是新進榜，從最下面進場
-        opacity: oldIndex !== -1 ? 1 : 0
-      };
+      return { ...player, currentIdx: oldIndex !== -1 ? oldIndex : data.length, opacity: oldIndex !== -1 ? 1 : 0 };
     });
   });
 
   useEffect(() => {
-    // 渲染後 50 毫秒觸發動畫，讓元素平滑移動到最新排名
     const timer = setTimeout(() => {
-      setDisplayRanks(data.map((player, idx) => ({
-        ...player,
-        currentIdx: idx,
-        opacity: 1
-      })));
-      globalLastLeaderboard = data; // 更新歷史排名紀錄
+      setDisplayRanks(data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 })));
+      globalLastLeaderboard = data; 
     }, 50);
     return () => clearTimeout(timer);
   }, [data]);
@@ -52,33 +64,16 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
   return (
     <div style={{ position: 'relative', height: `${data.length * 70}px`, transition: 'height 0.3s', marginBottom: '20px' }}>
       {displayRanks.map((player) => {
-        const idx = player.currentIdx; // 動畫當前位置
-        const finalIdx = data.findIndex(p => p.username === player.username); // 最終真實排名
-        
-        // 前三名專屬樣式設定
-        const isTop3 = finalIdx < 3;
-        const rankColors = ['#FFD700', '#bdc3c7', '#e67e22'];
-        const rankColor = isTop3 ? rankColors[finalIdx] : '#444';
+        const idx = player.currentIdx; const finalIdx = data.findIndex(p => p.username === player.username); 
+        const isTop3 = finalIdx < 3; const rankColors = ['#FFD700', '#bdc3c7', '#e67e22']; const rankColor = isTop3 ? rankColors[finalIdx] : '#444';
         const fontSize = finalIdx === 0 ? '1.6rem' : finalIdx === 1 ? '1.4rem' : finalIdx === 2 ? '1.2rem' : '1.05rem';
         const fontWeight = isTop3 ? '900' : 'bold';
         
         return (
           <div key={player.username} style={{ 
-            position: 'absolute', 
-            top: `${idx * 70}px`, 
-            left: 0, 
-            width: '100%', 
-            height: '60px',
-            opacity: player.opacity,
-            transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', // 帶有彈性的貝茲曲線動畫
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            padding: '0 1rem', 
-            background: 'rgba(255,255,255,0.05)', 
-            borderRadius: '8px', 
-            borderLeft: `5px solid ${rankColor}`, 
-            zIndex: 20 - finalIdx
+            position: 'absolute', top: `${idx * 70}px`, left: 0, width: '100%', height: '60px', opacity: player.opacity,
+            transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '0 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: `5px solid ${rankColor}`, zIndex: 20 - finalIdx
           }}>
             <span style={{ color: isTop3 ? rankColor : '#FFF', fontSize, fontWeight, transition: 'all 0.5s' }}>#{finalIdx + 1} {player.username}</span>
             <span style={{ color: isTop3 ? rankColor : '#FFD700', fontSize, fontWeight, transition: 'all 0.5s' }}>{player.score} 分</span>
@@ -88,7 +83,6 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
     </div>
   );
 };
-
 
 // ==========================================
 // 🎮 玩家端介面 (Player View)
@@ -111,33 +105,63 @@ function PlayerApp() {
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
 
+  // 👇 玩家 BGM 與頒獎音效控制 👇
+  useEffect(() => {
+    if (isJoined && !podiumData) {
+      sfx.bgm.play().catch(() => console.log('瀏覽器自動播放阻擋，需等待使用者互動'));
+    }
+    if (podiumData) {
+      sfx.bgm.pause();
+      sfx.cheer.currentTime = 0;
+      sfx.cheer.play().catch(()=>{});
+    }
+  }, [isJoined, podiumData]);
+
+  // 👇 玩家答對/答錯音效控制 👇
+  useEffect(() => {
+    if (answerResult) {
+      if (answerResult.isCorrect) { sfx.correct.currentTime = 0; sfx.correct.play().catch(()=>{}); }
+      else { sfx.wrong.currentTime = 0; sfx.wrong.play().catch(()=>{}); }
+    }
+  }, [answerResult]);
+
   useEffect(() => {
     socket.on('update_players', (list) => setPlayers(list || []));
-    
     socket.on('receive_question', (q) => { 
       if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
       setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
       setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
       setUserMatches({}); setActiveTopId(null); 
     });
-    
     socket.on('answer_result', setAnswerResult);
     socket.on('leaderboard_updated', setLeaderboard);
-    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); // 隱藏排行榜
+    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); });
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
     socket.on('join_error', (msg) => { alert(msg); setIsJoined(false); });
     return () => { socket.off(); };
   }, []);
 
+  // 👇 玩家倒數計時與滴答聲控制 👇
   useEffect(() => {
     if (currentQuestion && timeLeft > 0 && !hasAnswered && !leaderboard && !reviewData && !podiumData) {
-      const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000); return () => clearTimeout(timerId);
+      const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000); 
+      // 最後 5 秒播放滴答聲
+      if (timeLeft <= 5) { sfx.tick.currentTime = 0; sfx.tick.play().catch(()=>{}); }
+      return () => clearTimeout(timerId);
     } else if (timeLeft === 0 && currentQuestion && !hasAnswered) {
       setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: currentQuestion?.type === 'match' ? userMatches : '' });
     }
   }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData]);
 
-  const handleJoinArena = () => { if (username.trim() && pin.trim()) { socket.emit('join_room', { pin, username }); setIsJoined(true); } };
+  const handleJoinArena = () => { 
+    if (username.trim() && pin.trim()) { 
+      socket.emit('join_room', { pin, username }); 
+      setIsJoined(true); 
+      // 使用者點擊按鈕，解鎖音效權限並開始播放 BGM
+      sfx.bgm.play().catch(()=>{}); 
+    } 
+  };
+  
   const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
   const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
 
@@ -320,23 +344,25 @@ function AdminApp() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
 
+  // 👇 主持人端音效控制 👇
+  useEffect(() => {
+    if (hostingPin && !podiumData) sfx.bgm.play().catch(()=>{});
+    if (podiumData) { sfx.bgm.pause(); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
+  }, [hostingPin, podiumData]);
+
   useEffect(() => {
     socket.on('room_created', ({ pin, joinUrl }) => { setHostingPin(pin); setHostingUrl(window.location.origin + joinUrl); });
     socket.on('update_players', (list) => setPlayers(list || []));
     socket.on('receive_question', (q) => { setCurrentQuestion(q); setLeaderboard(null); setReviewData(null); setPodiumData(null); });
     socket.on('leaderboard_updated', setLeaderboard);
-    // 👇 確保收到答案時，一定把排行榜清掉 👇
     socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); 
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
     return () => { socket.off(); };
   }, []);
 
   const fetchQuizzes = async (user: string) => {
-    try {
-      const res = await fetch(`${API_URL}/quizzes/${user}`);
-      const data = await res.json();
-      setQuizPacks(data);
-    } catch (e) { console.error('讀取題庫失敗'); }
+    try { const res = await fetch(`${API_URL}/quizzes/${user}`); const data = await res.json(); setQuizPacks(data); } 
+    catch (e) { console.error('讀取題庫失敗'); }
   };
 
   const handleAuth = async () => {
@@ -354,7 +380,11 @@ function AdminApp() {
     } catch (e) { alert('伺服器連線失敗'); }
   };
 
-  const handleHostGame = (packId: string) => { socket.emit('host_create_room', packId); };
+  const handleHostGame = (packId: string) => { 
+    socket.emit('host_create_room', packId); 
+    sfx.bgm.play().catch(()=>{}); // 確保主持人點擊時解鎖自動播放
+  };
+
   const handleDeletePack = async (packId: string) => {
     if (!window.confirm('確定要刪除這個題庫包嗎？此動作無法復原！')) return;
     try { const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' }); if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); } } catch (e) { alert('刪除失敗'); }
@@ -461,7 +491,6 @@ function AdminApp() {
               </div>
             )}
 
-            {/* 👇 主持人排行榜同步：套用動態引擎，且保證與答案互斥 👇 */}
             {leaderboard && !reviewData && !podiumData && (
               <div>
                 <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
@@ -470,7 +499,6 @@ function AdminApp() {
               </div>
             )}
 
-            {/* 👇 主持人正確答案畫面 👇 */}
             {reviewData && (
               <div>
                 <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
