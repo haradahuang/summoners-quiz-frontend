@@ -7,43 +7,33 @@ const API_URL = 'https://swtest-pgq8.onrender.com/api';
 const socket: Socket = io('https://swtest-pgq8.onrender.com');
 
 // ==========================================
-// 🎵 全域音效引擎 (終極結界突破版)
+// 🎵 全域音效引擎
 // ==========================================
 const sfx: Record<string, HTMLAudioElement> = {
   bgm: new Audio('https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3'),
   tick: new Audio('https://actions.google.com/sounds/v1/ui/button_click.ogg'),
-  // 👇 換成經典的綜藝「叮咚、叮咚、叮咚」清脆過關聲
   correct: new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3'),
   wrong: new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg'),
-  // 👇 頒獎台：史詩級勝利號角 + 巨型群眾歡呼聲 (換成高穩定 CDN)
-  victory: new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3'),
-  cheer: new Audio('https://cdn.pixabay.com/download/audio/2022/01/18/audio_d1a1669b0a.mp3')
+  victory: new Audio('https://incompetech.com/music/royalty-free/mp3-royaltyfree/Happy%20Happy%20Game%20Show.mp3'),
+  cheer: new Audio('https://actions.google.com/sounds/v1/crowds/crowd_cheering.ogg')
 };
 
-// 設定預設音量與預載
 Object.values(sfx).forEach(audio => { audio.preload = 'auto'; });
 sfx.bgm.loop = true;
+sfx.victory.loop = true;
 
-// 🔓 「微音量」破冰解鎖器：徹底騙過 iOS Safari 與 Chrome
 const unlockAudio = () => {
-  const originalVolumes: Record<string, number> = { bgm: 0.3, tick: 0.6, correct: 0.8, wrong: 0.8, victory: 0.7, cheer: 0.9 };
-  
+  const originalVolumes: Record<string, number> = { bgm: 0.3, tick: 0.6, correct: 0.8, wrong: 0.8, victory: 0.5, cheer: 0.8 };
   Object.keys(sfx).forEach(key => {
     const audio = sfx[key];
-    // 用極小音量播一下，讓瀏覽器批准這個元件可以隨時發出聲音
     audio.volume = 0.01; 
     audio.play().then(() => {
       audio.pause();
       audio.currentTime = 0;
-      audio.volume = originalVolumes[key]; // 恢復正常音量
+      audio.volume = originalVolumes[key]; 
     }).catch(() => {});
   });
-
-  // 特別把 BGM 獨立啟動
-  setTimeout(() => {
-    sfx.bgm.volume = 0.3;
-    sfx.bgm.play().catch(()=>{});
-  }, 100);
+  setTimeout(() => { sfx.bgm.volume = 0.3; sfx.bgm.play().catch(()=>{}); }, 100);
 };
 
 class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: string }> {
@@ -121,14 +111,9 @@ function PlayerApp() {
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
 
-  // BGM 與 頒獎典禮控制 (玩家端)
   useEffect(() => {
-    if (isJoined && !podiumData) sfx.bgm.play().catch(()=>{});
-    if (podiumData) { 
-      sfx.bgm.pause(); 
-      sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{});
-      sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); 
-    }
+    if (isJoined && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
+    if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [isJoined, podiumData]);
 
   useEffect(() => {
@@ -159,9 +144,7 @@ function PlayerApp() {
     if (currentQuestion && timeLeft > 0 && !hasAnswered && !leaderboard && !reviewData && !podiumData) {
       timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000); 
       if (timeLeft <= 5) { sfx.tick.currentTime = 0; sfx.tick.play().catch(()=>{}); }
-    } else {
-      sfx.tick.pause();
-    }
+    } else { sfx.tick.pause(); }
 
     if (timeLeft === 0 && currentQuestion && !hasAnswered) {
       setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: currentQuestion?.type === 'match' ? userMatches : '' });
@@ -169,14 +152,7 @@ function PlayerApp() {
     return () => clearTimeout(timerId);
   }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData]);
 
-  const handleJoinArena = () => { 
-    if (username.trim() && pin.trim()) { 
-      socket.emit('join_room', { pin, username }); 
-      setIsJoined(true); 
-      unlockAudio(); 
-    } 
-  };
-  
+  const handleJoinArena = () => { if (username.trim() && pin.trim()) { socket.emit('join_room', { pin, username }); setIsJoined(true); unlockAudio(); } };
   const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
   const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
@@ -311,7 +287,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel">
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div><div className="firework fw-3">✨</div><div className="firework fw-4">🎊</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -356,14 +332,9 @@ function AdminApp() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
 
-  // BGM 與 頒獎典禮控制 (主持人端)
   useEffect(() => {
-    if (hostingPin && !podiumData) sfx.bgm.play().catch(()=>{});
-    if (podiumData) { 
-      sfx.bgm.pause(); 
-      sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{});
-      sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); 
-    }
+    if (hostingPin && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
+    if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [hostingPin, podiumData]);
 
   useEffect(() => {
@@ -396,11 +367,7 @@ function AdminApp() {
     } catch (e) { alert('伺服器連線失敗'); }
   };
 
-  const handleHostGame = (packId: string) => { 
-    socket.emit('host_create_room', packId); 
-    unlockAudio(); // 解鎖並預載所有音效
-  };
-
+  const handleHostGame = (packId: string) => { socket.emit('host_create_room', packId); unlockAudio(); };
   const handleDeletePack = async (packId: string) => {
     if (!window.confirm('確定要刪除這個題庫包嗎？此動作無法復原！')) return;
     try { const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' }); if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); } } catch (e) { alert('刪除失敗'); }
@@ -427,7 +394,7 @@ function AdminApp() {
       newQ.correctAnswer = newAns; newQ.options = options;
     } else {
       const isComplete = matchPairs.every(p => p.tName && p.tImg && p.bImg);
-      if (!isComplete) return alert('請確保 4 組配對的名字與圖片網址都有填寫！');
+      if (!isComplete) return alert('請確保 4 組配驚的名字與圖片網址都有填寫！');
       newQ.topItems = matchPairs.map((p, i) => ({ id: `T${i+1}`, name: p.tName, img: p.tImg }));
       newQ.bottomItems = matchPairs.map((p, i) => ({ id: `B${i+1}`, img: p.bImg }));
       newQ.correctMatches = { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' };
@@ -439,6 +406,14 @@ function AdminApp() {
 
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
   const updateMatchPair = (index: number, field: string, value: string) => { const newPairs = [...matchPairs]; newPairs[index] = { ...newPairs[index], [field]: value }; setMatchPairs(newPairs); };
+
+  // 👇 加入退出房間邏輯 👇
+  const handleReturnToDashboard = () => {
+    sfx.victory.pause(); sfx.victory.currentTime = 0;
+    sfx.cheer.pause(); sfx.cheer.currentTime = 0;
+    setHostingPin(null); setHostingUrl(null); setPlayers([]);
+    setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
+  };
 
   if (!adminUser) {
     return (
@@ -551,8 +526,9 @@ function AdminApp() {
               </div>
             )}
 
+            {/* 👇 主持人的頒獎台加上「返回控制台」按鈕 👇 */}
             {podiumData && (
-              <div>
+              <div style={{ animation: 'bounceIn 1s ease' }}>
                 <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div><div className="firework fw-3">✨</div><div className="firework fw-4">🎊</div>
                 <div className="podium-content">
                   <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -560,6 +536,8 @@ function AdminApp() {
                   {podiumData?.[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem', margin: '20px 0'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
                   {podiumData?.[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem', margin: '20px 0'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
                 </div>
+                
+                <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px' }}>🏠 返回控制台</button>
               </div>
             )}
           </>
