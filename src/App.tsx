@@ -115,6 +115,7 @@ function PlayerApp() {
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
   const [multiSelected, setMultiSelected] = useState<string[]>([]);
+  const [orderState, setOrderState] = useState<any[]>([]); // 排序題專用狀態
 
   useEffect(() => {
     if (isJoined && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
@@ -132,6 +133,12 @@ function PlayerApp() {
     socket.on('update_players', (list) => setPlayers(list || []));
     socket.on('receive_question', (q) => { 
       if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
+      
+      // 排序題：接收到選項後立刻打亂順序給玩家
+      if (q.type === 'order' && q.options) {
+        setOrderState([...q.options].sort(() => Math.random() - 0.5));
+      }
+
       setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
       setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
       setUserMatches({}); setActiveTopId(null); setMultiSelected([]); 
@@ -156,10 +163,11 @@ function PlayerApp() {
       let ans: any = '';
       if (currentQuestion.type === 'match') ans = userMatches;
       else if (currentQuestion.type === 'multi') ans = multiSelected;
+      else if (currentQuestion.type === 'order') ans = orderState.map(o => o.id).join(',');
       socket.emit('submit_answer', { pin, answerData: ans });
     }
     return () => clearTimeout(timerId);
-  }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData, userMatches, multiSelected]);
+  }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData, userMatches, multiSelected, orderState]);
 
   const handleJoinArena = () => { if (username.trim() && pin.trim()) { socket.emit('join_room', { pin, username }); setIsJoined(true); unlockAudio(); } };
   const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
@@ -169,6 +177,23 @@ function PlayerApp() {
     setMultiSelected(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]);
   };
   const handleMultiSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: multiSelected }); } };
+
+  // 排序題上下移動邏輯
+  const moveOrderUp = (index: number) => {
+    if (index === 0 || hasAnswered) return;
+    const newArr = [...orderState];
+    [newArr[index - 1], newArr[index]] = [newArr[index], newArr[index - 1]];
+    setOrderState(newArr);
+  };
+  const moveOrderDown = (index: number) => {
+    if (index === orderState.length - 1 || hasAnswered) return;
+    const newArr = [...orderState];
+    [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]];
+    setOrderState(newArr);
+  };
+  const handleOrderSubmit = () => { 
+    if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: orderState.map(o => o.id).join(',') }); } 
+  };
 
   const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
@@ -201,11 +226,15 @@ function PlayerApp() {
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px' }}>
-              <div style={{ height: '100%', background: '#FFD700', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s', borderRadius: '3px' }} />
+          
+          {/* 👇 全新加粗進度條附帶文字 👇 */}
+          <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,215,0,0.5)' }}>
+            <div style={{ height: '100%', background: 'linear-gradient(90deg, #f39c12, #f1c40f)', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s' }} />
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: '900', fontSize: '0.9rem', textShadow: '1px 1px 2px #000' }}>
+              題目進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}
             </div>
           </div>
+
           <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem' }}>{currentQuestion?.text}</h2>
           <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
@@ -261,6 +290,24 @@ function PlayerApp() {
             </div>
           )}
 
+          {/* 👇 排序題玩家作答介面 👇 */}
+          {currentQuestion?.type === 'order' && !hasAnswered && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '5px' }}>💡 點擊右側按鈕上下移動，由上而下排出正確順序！</p>
+              {orderState.map((opt, idx) => (
+                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '10px', borderLeft: `6px solid ${opt.color}` }}>
+                  <span style={{ color: '#f1c40f', fontWeight: '900', marginRight: '15px', fontSize: '1.3rem', width: '25px' }}>{idx + 1}.</span>
+                  <span style={{ color: '#fff', flex: 1, fontSize: '1.1rem', textAlign: 'left' }}>{opt.text}</span>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button onClick={() => moveOrderUp(idx)} disabled={idx === 0} style={{ padding:'8px 12px', background:'#3498db', border:'none', borderRadius:'5px', cursor: idx===0?'not-allowed':'pointer', opacity: idx===0?0.3:1, fontSize: '1.2rem' }}>⬆️</button>
+                    <button onClick={() => moveOrderDown(idx)} disabled={idx === orderState.length - 1} style={{ padding:'8px 12px', background:'#e74c3c', border:'none', borderRadius:'5px', cursor: idx===orderState.length-1?'not-allowed':'pointer', opacity: idx===orderState.length-1?0.3:1, fontSize: '1.2rem' }}>⬇️</button>
+                  </div>
+                </div>
+              ))}
+              <button className="btn-summon" onClick={handleOrderSubmit} style={{ marginTop: '15px', background: '#2ecc71' }}>確認排序並送出！</button>
+            </div>
+          )}
+
           {currentQuestion?.type === 'match' && !hasAnswered && (
             <div>
               <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊上方魔靈，再點下方圖片來配對</p>
@@ -299,14 +346,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel">
+         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel">
+        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {reviewData.question.type === 'guess' && (
@@ -330,6 +377,19 @@ function PlayerApp() {
                  );
                })}
              </div>
+          )}
+
+          {/* 👇 排序題正確答案展示 👇 */}
+          {reviewData.question.type === 'order' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold' }}>🎯 正確排序</p>
+              {(reviewData.question.options || []).map((opt: any, idx: number) => (
+                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
+                   <span style={{ color: '#2ecc71', fontWeight: '900', marginRight: '15px', fontSize: '1.3rem', width: '25px' }}>{idx + 1}.</span>
+                   <span style={{ color: '#fff', flex: 1, fontSize: '1.1rem', textAlign: 'left' }}>{opt.text}</span>
+                </div>
+              ))}
+            </div>
           )}
 
           {reviewData.question.type === 'tf' && (
@@ -367,7 +427,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -394,7 +454,7 @@ function AdminApp() {
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
-  const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi' | 'guess'>('choice');
+  const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order'>('choice');
   const [newQText, setNewQText] = useState('');
   const [newTime, setNewTime] = useState(10);
   const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
@@ -485,11 +545,10 @@ function AdminApp() {
   };
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess';
+    const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order';
     setQType(type);
     if (type === 'tf') setNewTime(5); 
-    else if (type === 'match') setNewTime(30);
-    // 👇 修改點：猜圖題預設改為 12 秒 👇
+    else if (type === 'match' || type === 'order') setNewTime(30); // 排序題需要較多思考時間
     else if (type === 'guess') setNewTime(12);
     else setNewTime(10);
   };
@@ -500,12 +559,13 @@ function AdminApp() {
 
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id); setQType(q.type); setNewQText(q.text); setNewTime(q.timeLimit);
-    if (q.type === 'choice' || q.type === 'multi' || q.type === 'guess') {
+    if (q.type === 'choice' || q.type === 'multi' || q.type === 'guess' || q.type === 'order') {
       setNewOptA(q.options[0]?.text || ''); setNewOptB(q.options[1]?.text || '');
       setNewOptC(q.options[2]?.text || ''); setNewOptD(q.options[3]?.text || '');
       if (q.type === 'choice' || q.type === 'guess') setNewAns(q.correctAnswer || 'A');
       if (q.type === 'multi') setNewMultiAns(q.correctAnswers || []);
       if (q.type === 'guess') setNewGuessImg(q.guessImg || '');
+      // order 不需要設定 newAns，因為我們直接規定 A->B->C->D 就是正解
     } else if (q.type === 'tf') {
       setNewTfAns(q.correctAnswer || 'O');
     } else if (q.type === 'match') {
@@ -527,8 +587,8 @@ function AdminApp() {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
-    if (qType === 'choice' || qType === 'multi' || qType === 'guess') {
-      if (!newOptA.trim() || !newOptB.trim()) return alert('此題型請至少填寫 A 與 B 兩個選項！');
+    if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order') {
+      if (!newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) return alert('此題型強烈建議填寫 A/B/C/D 四個完整選項，以保證遊戲體驗！');
       if (qType === 'guess' && !newGuessImg) return alert('請上傳要讓玩家猜的圖片！');
 
       const options = [];
@@ -542,9 +602,12 @@ function AdminApp() {
         if (!options.find(o => o.id === newAns)) return alert(`您設定的正解不存在！`);
         newQ.correctAnswer = newAns;
         if (qType === 'guess') newQ.guessImg = newGuessImg;
-      } else {
+      } else if (qType === 'multi') {
         if (newMultiAns.length === 0) return alert('多選題請至少勾選一個正確解答！');
         newQ.correctAnswers = newMultiAns;
+      } else if (qType === 'order') {
+        // 排序題的秘密：直接將 A,B,C,D 視為正確順序字串存入
+        newQ.correctAnswer = options.map(o => o.id).join(',');
       }
     } else if (qType === 'tf') {
       newQ.correctAnswer = newTfAns;
@@ -576,7 +639,7 @@ function AdminApp() {
   if (hostingPin) {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
-      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
+      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -597,6 +660,15 @@ function AdminApp() {
 
             {currentQuestion && !leaderboard && !reviewData && !podiumData && (
               <div className="question-transition">
+                
+                {/* 👇 主持人端的新版加粗進度條 👇 */}
+                <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,215,0,0.5)' }}>
+                  <div style={{ height: '100%', background: 'linear-gradient(90deg, #f39c12, #f1c40f)', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s' }} />
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: '900', fontSize: '0.9rem', textShadow: '1px 1px 2px #000' }}>
+                    題目進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}
+                  </div>
+                </div>
+
                 <h3 style={{ color: '#34db98', marginBottom: '10px' }}>⏳ 題目作答中... (已答題: {players.filter(p => p.hasAnswered).length} / {players.length} 人)</h3>
                 <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1.5rem' }}>{currentQuestion.text}</h2>
                 
@@ -615,7 +687,8 @@ function AdminApp() {
                    </div>
                 )}
 
-                {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess') && (
+                {/* 排序題的主持人端，也是顯示選項而已 */}
+                {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order') && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.8 }}>
                     {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', borderLeft: `5px solid ${opt.color}`, color: '#fff' }}>{opt.text}</div>))}
                   </div>
@@ -674,6 +747,20 @@ function AdminApp() {
                      })}
                    </div>
                 )}
+
+                {/* 👇 主持人端的排序題正確答案展示 👇 */}
+                {reviewData.question.type === 'order' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold' }}>🎯 正確排序</p>
+                    {(reviewData.question.options || []).map((opt: any, idx: number) => (
+                      <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
+                         <span style={{ color: '#2ecc71', fontWeight: '900', marginRight: '15px', fontSize: '1.3rem', width: '25px' }}>{idx + 1}.</span>
+                         <span style={{ color: '#fff', flex: 1, fontSize: '1.1rem', textAlign: 'left' }}>{opt.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {reviewData.question.type === 'tf' && (
                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 6px 0 #00994d' : '0 6px 0 #cc0000', margin: '1rem auto' }}>
@@ -728,7 +815,7 @@ function AdminApp() {
 
   if (editingPack) {
     return (
-      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
           <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -738,8 +825,8 @@ function AdminApp() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           {editingPack.questions.map((q: any, idx: number) => {
-            const typeLabels: any = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜謎' };
-            const typeColors: any = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393' };
+            const typeLabels: any = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜謎', order: '排序' };
+            const typeColors: any = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
             return (
             <div key={q.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div><span style={{ background: typeColors[q.type], padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', marginRight: '10px' }}>{typeLabels[q.type]}</span><strong>Q{idx + 1}. {q.text}</strong></div>
@@ -763,6 +850,7 @@ function AdminApp() {
               <option value="tf">生死是非題 (O/X)</option>
               <option value="multi">地獄多選題</option>
               <option value="guess">圖片漸進猜謎題</option>
+              <option value="order">排列順序題 (由上到下)</option>
               <option value="match">圖片配對題</option>
             </select>
             <input type="number" placeholder="秒數" value={newTime} onChange={(e) => setNewTime(Number(e.target.value))} className="game-input" style={{ width: '80px' }} />
@@ -780,23 +868,26 @@ function AdminApp() {
             </div>
           )}
 
-          {(qType === 'choice' || qType === 'multi' || qType === 'guess') && (
+          {/* 👇 排序題也共用這個 4 個文字選項的輸入框 👇 */}
+          {(qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order') && (
             <>
+              {qType === 'order' && <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>* 請依序(由上至下)在選項 A 到 D 填入正確順序，發送時系統會自動打亂讓玩家排列！</p>}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
                 <input type="text" placeholder="選項 A (必填)" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
                 <input type="text" placeholder="選項 B (必填)" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 C (選填)" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                <input type="text" placeholder="選項 D (選填)" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 C (必填)" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                <input type="text" placeholder="選項 D (必填)" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
               </div>
               
-              {(qType === 'choice' || qType === 'guess') ? (
+              {(qType === 'choice' || qType === 'guess') && (
                 <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ color: '#fff' }}>正確解答:</span>
                   <select value={newAns} onChange={(e) => setNewAns(e.target.value)} className="game-input" style={{ width: '100px', marginBottom: 0 }}>
                     <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
                   </select>
                 </div>
-              ) : (
+              )}
+              {qType === 'multi' && (
                 <div style={{ marginTop: '10px' }}>
                   <span style={{ color: '#fff', display: 'block', marginBottom: '5px' }}>勾選正確解答 (可複選):</span>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -876,7 +967,6 @@ function AdminApp() {
 export default function App() {
   return (
     <ErrorBoundary>
-      {/* 👇 徹底釋放捲軸：強制複寫 body 預設鎖死，並移除所有內層限制 👇 */}
       <style>{`
         html, body, #root {
           margin: 0;
