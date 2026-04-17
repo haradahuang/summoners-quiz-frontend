@@ -196,9 +196,8 @@ function PlayerApp() {
         </div>
       )}
 
-      {/* 移除原本的 max-height 和 overflow-y，由全局控制滾動 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel question-transition" style={{ paddingBottom: '2rem' }}>
+        <div className="game-panel question-transition">
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
@@ -300,14 +299,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
+         <div className="game-panel">
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
+        <div className="game-panel">
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {reviewData.question.type === 'guess' && (
@@ -368,7 +367,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -408,8 +407,6 @@ function AdminApp() {
 
   const [players, setPlayers] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
-  
-  // 👇 修正點 1：替主持人端補上專屬計時器，避免發生 NaN / undefined 錯誤 👇
   const [timeLeft, setTimeLeft] = useState(0); 
 
   const [leaderboard, setLeaderboard] = useState<any[] | null>(null);
@@ -426,7 +423,7 @@ function AdminApp() {
     socket.on('update_players', (list) => setPlayers(list || []));
     socket.on('receive_question', (q) => { 
       setCurrentQuestion(q); 
-      setTimeLeft(q?.timeLimit || 15); // 同步接收秒數
+      setTimeLeft(q?.timeLimit || 15);
       setLeaderboard(null); setReviewData(null); setPodiumData(null); 
     });
     socket.on('leaderboard_updated', setLeaderboard);
@@ -435,7 +432,6 @@ function AdminApp() {
     return () => { socket.off(); };
   }, []);
 
-  // 👇 修正點 1：啟動主持人端的倒數計時，讓圖片的漸變特效能正常運作 👇
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (currentQuestion && timeLeft > 0 && !leaderboard && !reviewData && !podiumData) {
@@ -493,7 +489,8 @@ function AdminApp() {
     setQType(type);
     if (type === 'tf') setNewTime(5); 
     else if (type === 'match') setNewTime(30);
-    else if (type === 'guess') setNewTime(20);
+    // 👇 修改點：猜圖題預設改為 12 秒 👇
+    else if (type === 'guess') setNewTime(12);
     else setNewTime(10);
   };
 
@@ -579,7 +576,7 @@ function AdminApp() {
   if (hostingPin) {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
-      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
+      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -715,7 +712,7 @@ function AdminApp() {
               <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                 <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                 <div className="podium-content">
-                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
+                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem' }}>🏆 傳奇誕生 🏆</h2>
                   {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
                   {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
                   {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
@@ -729,10 +726,9 @@ function AdminApp() {
     );
   }
 
-  // 👇 修正點 2：拔除編輯器的 maxHeight / overflowY，完全靠外層統一滾動 👇
   if (editingPack) {
     return (
-      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
+      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
           <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -877,11 +873,20 @@ function AdminApp() {
   );
 }
 
-// 👇 修正點 2：這裡設定了 overflowY: auto，讓全站只有這唯一一個原生捲軸，保證不卡死 👇
 export default function App() {
   return (
     <ErrorBoundary>
-      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '8vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg")`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      {/* 👇 徹底釋放捲軸：強制複寫 body 預設鎖死，並移除所有內層限制 👇 */}
+      <style>{`
+        html, body, #root {
+          margin: 0;
+          padding: 0;
+          min-height: 100vh;
+          height: auto;
+          overflow-y: auto !important;
+        }
+      `}</style>
+      <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg")`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
         <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}><h1 className="text-glow">傳奇金頭腦挑戰賽</h1></div>
         <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
       </div>
