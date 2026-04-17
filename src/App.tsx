@@ -182,8 +182,9 @@ function PlayerApp() {
         </div>
       )}
 
+      {/* 👇 玩家端畫面加上 maxHeight 防止破版 👇 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel question-transition" key={currentQuestion.id}>
+        <div className="game-panel question-transition" key={currentQuestion.id} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
@@ -247,14 +248,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel">
+         <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel">
+        <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           {reviewData?.question?.type === 'choice' ? (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -287,7 +288,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', maxHeight: '85vh', overflowY: 'auto' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div><div className="firework fw-3">✨</div><div className="firework fw-4">🎊</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -315,11 +316,10 @@ function AdminApp() {
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   
-  // 👇 編輯器狀態：增加 tracking 修改題目的 ID 👇
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
   const [qType, setQType] = useState<'choice' | 'match'>('choice');
   const [newQText, setNewQText] = useState('');
-  const [newTime, setNewTime] = useState(10); // 預設單選題 10 秒
+  const [newTime, setNewTime] = useState(10);
   const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
   const [newOptC, setNewOptC] = useState(''); const [newOptD, setNewOptD] = useState('');
   const [newAns, setNewAns] = useState('A');
@@ -376,11 +376,25 @@ function AdminApp() {
   };
 
   const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] }); };
+  
+  // 👇 修復點 1：正確傳送 _id 讓後端覆蓋更新 👇
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫題庫包名稱！');
     try { 
-      const res = await fetch(`${API_URL}/quizzes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPack) }); 
-      if (res.ok) { alert('💾 題庫包儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); } else { alert('⚠️ 儲存失敗：伺服器拒絕請求 (可能是圖片總容量過大，請確認每張圖都在 300KB 以內！)'); }
+      const payload = {
+        id: editingPack._id, // 確保送出舊有 _id
+        title: editingPack.title,
+        author: editingPack.author,
+        questions: editingPack.questions
+      };
+      const res = await fetch(`${API_URL}/quizzes`, { 
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) 
+      }); 
+      if (res.ok) { 
+        alert('💾 題庫包儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); 
+      } else { 
+        alert('⚠️ 儲存失敗：伺服器拒絕請求 (可能是圖片總容量過大，請確認每張圖都在 300KB 以內！)'); 
+      }
     } catch(e) { alert('連線失敗：請檢查網路或稍後再試'); }
   };
 
@@ -393,14 +407,12 @@ function AdminApp() {
     reader.readAsDataURL(file);
   };
 
-  // 👇 智慧判斷題型並調整預設秒數 👇
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const type = e.target.value as 'choice' | 'match';
     setQType(type);
     setNewTime(type === 'choice' ? 10 : 30);
   };
 
-  // 👇 把現有題目資料填回表單的修改功能 👇
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id);
     setQType(q.type);
@@ -427,11 +439,7 @@ function AdminApp() {
       });
       setMatchPairs(pairs);
     }
-    
-    // 平滑捲動到編輯表單
-    setTimeout(() => {
-      document.getElementById('question-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
+    setTimeout(() => { document.getElementById('question-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
   };
 
   const handleCancelEditQuestion = () => {
@@ -441,7 +449,6 @@ function AdminApp() {
     setMatchPairs([{ tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }]);
   };
 
-  // 👇 儲存題目 (支援新增與更新) 👇
   const handleSaveQuestion = () => {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
@@ -464,13 +471,11 @@ function AdminApp() {
     }
 
     if (editingQuestionId) {
-      // 更新現有題目
       setEditingPack({ ...editingPack, questions: editingPack.questions.map((q: any) => q.id === editingQuestionId ? newQ : q) });
     } else {
-      // 新增題目
       setEditingPack({ ...editingPack, questions: [...editingPack.questions, newQ] });
     }
-    handleCancelEditQuestion(); // 清空表單並退出編輯模式
+    handleCancelEditQuestion(); 
   };
 
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
@@ -501,7 +506,8 @@ function AdminApp() {
     const answeredCount = players.filter(p => p.hasAnswered).length;
 
     return (
-      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
+      // 👇 修復點 2：加入 maxHeight: 85vh 防止畫面超出螢幕無法往下滾動 👇
+      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -632,7 +638,6 @@ function AdminApp() {
                 <strong>Q{idx + 1}. {q.text}</strong>
               </div>
               <div style={{ display: 'flex', gap: '5px' }}>
-                {/* 👇 加入修改按鈕 👇 */}
                 <button onClick={() => handleEditQuestion(q)} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>修改</button>
                 <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>刪除</button>
               </div>
@@ -640,7 +645,6 @@ function AdminApp() {
           ))}
         </div>
 
-        {/* 👇 讓修改時可以自動跳到這個區塊 👇 */}
         <div id="question-edit-form" style={{ background: editingQuestionId ? 'rgba(243, 156, 18, 0.15)' : 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '10px', marginTop: '2rem', border: editingQuestionId ? '2px solid #f39c12' : '1px dashed #7f8c8d', transition: 'all 0.3s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ color: editingQuestionId ? '#f39c12' : '#2ecc71', margin: 0 }}>{editingQuestionId ? '✏️ 修改題目' : '➕ 新增一題'}</h3>
@@ -711,7 +715,7 @@ function AdminApp() {
   }
 
   return (
-    <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+    <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
         <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板 ({adminUser})</h2>
         <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
