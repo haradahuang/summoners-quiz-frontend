@@ -1,3 +1,12 @@
+哎呀！這真的是我的疏忽！🤦‍♂️ 
+
+剛剛在幫你把程式碼「瘦身」塞進更新檔的時候，我不小心把後台最關鍵的幾個大廳操作功能（`handleCreateNewPack` 建立題庫、`handleDeletePack` 刪除題庫、`handleHostGame` 開房）給不小心剪掉了！所以當你一登入，系統找不到這些按鈕對應的動作，就直接崩潰了。
+
+我已經把遺失的「靈魂碎片」全部補齊了，並且仔細檢查了所有的按鈕連結。
+
+請將前端專案的 **`src/App.tsx`** 全選刪除，替換為這份 **「功能完整修復版」**：
+
+```tsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
@@ -7,7 +16,7 @@ const API_URL = 'https://swtest-pgq8.onrender.com/api';
 const socket: Socket = io('https://swtest-pgq8.onrender.com');
 
 // ==========================================
-// 🎵 音效引擎 & ErrorBoundary (保持不變)
+// 🎵 全域音效引擎
 // ==========================================
 const sfx: Record<string, HTMLAudioElement> = {
   bgm: new Audio('https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3'),
@@ -17,12 +26,21 @@ const sfx: Record<string, HTMLAudioElement> = {
   victory: new Audio('https://incompetech.com/music/royalty-free/mp3-royaltyfree/Happy%20Happy%20Game%20Show.mp3'),
   cheer: new Audio('https://actions.google.com/sounds/v1/crowds/crowd_cheering.ogg')
 };
-Object.values(sfx).forEach(audio => { audio.preload = 'auto'; }); sfx.bgm.loop = true; sfx.victory.loop = true;
+
+Object.values(sfx).forEach(audio => { audio.preload = 'auto'; });
+sfx.bgm.loop = true;
+sfx.victory.loop = true;
+
 const unlockAudio = () => {
   const originalVolumes: Record<string, number> = { bgm: 0.3, tick: 0.6, correct: 0.8, wrong: 0.8, victory: 0.5, cheer: 0.8 };
   Object.keys(sfx).forEach(key => {
-    const audio = sfx[key]; audio.volume = 0.01; 
-    audio.play().then(() => { audio.pause(); audio.currentTime = 0; audio.volume = originalVolumes[key]; }).catch(() => {});
+    const audio = sfx[key];
+    audio.volume = 0.01; 
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = originalVolumes[key]; 
+    }).catch(() => {});
   });
   setTimeout(() => { sfx.bgm.volume = 0.3; sfx.bgm.play().catch(()=>{}); }, 100);
 };
@@ -39,7 +57,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
 // ==========================================
-// 🏆 排行榜引擎 (保持不變)
+// 🏆 動態洗牌排行榜引擎
 // ==========================================
 let globalLastLeaderboard: any[] = [];
 const LeaderboardView = ({ data }: { data: any[] }) => {
@@ -49,8 +67,12 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
       return { ...player, currentIdx: oldIndex !== -1 ? oldIndex : data.length, opacity: oldIndex !== -1 ? 1 : 0 };
     });
   });
+
   useEffect(() => {
-    const timer = setTimeout(() => { setDisplayRanks(data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 }))); globalLastLeaderboard = data; }, 50);
+    const timer = setTimeout(() => {
+      setDisplayRanks(data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 })));
+      globalLastLeaderboard = data; 
+    }, 50);
     return () => clearTimeout(timer);
   }, [data]);
 
@@ -61,6 +83,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
         const isTop3 = finalIdx < 3; const rankColors = ['#FFD700', '#bdc3c7', '#e67e22']; const rankColor = isTop3 ? rankColors[finalIdx] : '#444';
         const fontSize = finalIdx === 0 ? '1.6rem' : finalIdx === 1 ? '1.4rem' : finalIdx === 2 ? '1.2rem' : '1.05rem';
         const fontWeight = isTop3 ? '900' : 'bold';
+        
         return (
           <div key={player.username} style={{ 
             position: 'absolute', top: `${idx * 70}px`, left: 0, width: '100%', height: '60px', opacity: player.opacity,
@@ -117,7 +140,7 @@ function PlayerApp() {
       if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
       setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
       setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
-      setUserMatches({}); setActiveTopId(null); setMultiSelected([]); // 重置新題型狀態
+      setUserMatches({}); setActiveTopId(null); setMultiSelected([]); 
     });
     socket.on('answer_result', setAnswerResult);
     socket.on('leaderboard_updated', setLeaderboard);
@@ -138,7 +161,7 @@ function PlayerApp() {
       setHasAnswered(true); 
       let ans: any = '';
       if (currentQuestion.type === 'match') ans = userMatches;
-      if (currentQuestion.type === 'multi') ans = multiSelected;
+      else if (currentQuestion.type === 'multi') ans = multiSelected;
       socket.emit('submit_answer', { pin, answerData: ans });
     }
     return () => clearTimeout(timerId);
@@ -147,14 +170,12 @@ function PlayerApp() {
   const handleJoinArena = () => { if (username.trim() && pin.trim()) { socket.emit('join_room', { pin, username }); setIsJoined(true); unlockAudio(); } };
   const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
   
-  // 多選題操作
   const toggleMultiSelect = (optId: string) => {
     if (hasAnswered) return;
     setMultiSelected(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]);
   };
   const handleMultiSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: multiSelected }); } };
 
-  // 配對題操作
   const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
   const handleBottomClick = (bottomId: string) => { setUserMatches(prev => { const newMatches = { ...prev }; let existingTopKey = null; for (const key in newMatches) { if (newMatches[key] === bottomId) existingTopKey = key; } if (activeTopId) { if (existingTopKey) delete newMatches[existingTopKey]; newMatches[activeTopId] = bottomId; setActiveTopId(null); } else { if (existingTopKey) delete newMatches[existingTopKey]; } return newMatches; }); };
@@ -196,7 +217,6 @@ function PlayerApp() {
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
 
-          {/* 單選題 */}
           {currentQuestion?.type === 'choice' && !hasAnswered && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {(currentQuestion?.options || []).map((opt: any) => (
@@ -205,7 +225,6 @@ function PlayerApp() {
             </div>
           )}
 
-          {/* 是非題 */}
           {currentQuestion?.type === 'tf' && !hasAnswered && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
               <button onClick={() => handleChoiceClick('O')} style={{ padding: '2rem', fontSize: '4rem', fontWeight: 'bold', color: '#fff', background: 'rgba(46, 204, 113, 0.8)', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #27ae60' }}>⭕</button>
@@ -213,7 +232,6 @@ function PlayerApp() {
             </div>
           )}
 
-          {/* 多選題 */}
           {currentQuestion?.type === 'multi' && !hasAnswered && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '5px' }}>💡 點擊選取多個答案，完成後點擊下方送出</p>
@@ -233,7 +251,6 @@ function PlayerApp() {
             </div>
           )}
 
-          {/* 配對題 */}
           {currentQuestion?.type === 'match' && !hasAnswered && (
             <div>
               <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊上方魔靈，再點下方圖片來配對</p>
@@ -242,7 +259,7 @@ function PlayerApp() {
                   const isActive = activeTopId === item.id; const isMatched = Boolean(userMatches[item.id]); const itemColor = topColors[item.id] || '#fff';
                   return (
                     <div key={item.id} onClick={() => handleTopClick(item.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive || isMatched ? itemColor : 'transparent' }}>
-                      <img src={item.img} alt="top" referrerPolicy="no-referrer" /> <p>{item.name}</p> {isMatched && <div className="match-badge" style={{ background: itemColor }}>✓</div>}
+                      <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" /> <p>{item.name}</p> {isMatched && <div className="match-badge" style={{ background: itemColor }}>✓</div>}
                     </div>
                   );
                 })}
@@ -252,7 +269,7 @@ function PlayerApp() {
                   let matchedTopId = null; for (const k in userMatches) { if (userMatches[k] === item.id) matchedTopId = k; }
                   return (
                     <div key={item.id} onClick={() => handleBottomClick(item.id)} className="match-item" style={{ borderColor: matchedTopId ? topColors[matchedTopId] : 'transparent' }}>
-                      <img src={item.img} alt="bottom" referrerPolicy="no-referrer" /> {matchedTopId && <div className="match-badge" style={{ background: topColors[matchedTopId] || '#fff' }}>✓</div>}
+                      <img src={item.img} alt="bottom" referrerPolicy="no-referrer" crossOrigin="anonymous" /> {matchedTopId && <div className="match-badge" style={{ background: topColors[matchedTopId] || '#fff' }}>✓</div>}
                     </div>
                   );
                 })}
@@ -278,12 +295,10 @@ function PlayerApp() {
          </div>
       )}
 
-      {/* 玩家端正確答案畫面 */}
       {isJoined && reviewData && (
         <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
-          {/* 單選題 & 多選題解答畫面 */}
           {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi') && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                {(reviewData.question.options || []).map((opt: any) => {
@@ -299,7 +314,6 @@ function PlayerApp() {
              </div>
           )}
 
-          {/* 是非題解答畫面 */}
           {reviewData.question.type === 'tf' && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
                 <div style={{ padding: '2rem', fontSize: '3rem', color: '#fff', background: reviewData.question.correctAnswer === 'O' ? '#27ae60' : '#c0392b', borderRadius: '15px' }}>
@@ -347,7 +361,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 專屬管理端介面 (Admin UI Builder)
+// 👑 專屬管理端介面
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -358,7 +372,6 @@ function AdminApp() {
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   
-  // 編輯器擴充狀態
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
   const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi'>('choice');
   const [newQText, setNewQText] = useState('');
@@ -376,6 +389,11 @@ function AdminApp() {
   const [leaderboard, setLeaderboard] = useState<any[] | null>(null);
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    if (hostingPin && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
+    if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
+  }, [hostingPin, podiumData]);
 
   useEffect(() => {
     socket.on('room_created', ({ pin, joinUrl }) => { setHostingPin(pin); setHostingUrl(window.location.origin + joinUrl); });
@@ -406,7 +424,7 @@ function AdminApp() {
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi';
     setQType(type);
-    if (type === 'tf') setNewTime(5); // 是非題預設 5 秒高壓
+    if (type === 'tf') setNewTime(5); 
     else if (type === 'match') setNewTime(30);
     else setNewTime(10);
   };
@@ -432,11 +450,27 @@ function AdminApp() {
     setTimeout(() => { document.getElementById('question-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
   };
 
+  // 👇 修復點 1：補回這些被誤刪的按鈕功能 👇
+  const handleHostGame = (packId: string) => { socket.emit('host_create_room', packId); unlockAudio(); };
+  
+  const handleDeletePack = async (packId: string) => {
+    if (!window.confirm('確定要刪除這個題庫包嗎？此動作無法復原！')) return;
+    try { const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' }); if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); } } catch (e) { alert('刪除失敗'); }
+  };
+  
+  const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] }); };
+
+  const handleCancelEditQuestion = () => {
+    setEditingQuestionId(null); setQType('choice'); setNewTime(10); setNewQText('');
+    setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD(''); setNewAns('A'); setNewMultiAns([]);
+    setMatchPairs([{ tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }]);
+  };
+
   const handleSaveQuestion = () => {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
-    if (qType === 'choice' || q.type === 'multi') {
+    if (qType === 'choice' || qType === 'multi') {
       if (!newOptA.trim() || !newOptB.trim()) return alert('單選/多選題請至少填寫 A 與 B 兩個選項！');
       const options = [];
       if (newOptA.trim()) options.push({ id: 'A', text: newOptA, color: '#e53e3e' });
@@ -464,9 +498,7 @@ function AdminApp() {
     if (editingQuestionId) setEditingPack({ ...editingPack, questions: editingPack.questions.map((q: any) => q.id === editingQuestionId ? newQ : q) });
     else setEditingPack({ ...editingPack, questions: [...editingPack.questions, newQ] });
     
-    // Reset
-    setEditingQuestionId(null); setQType('choice'); setNewTime(10); setNewQText('');
-    setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD(''); setNewAns('A'); setNewMultiAns([]);
+    handleCancelEditQuestion();
   };
 
   const handleSavePack = async () => {
@@ -672,6 +704,7 @@ function AdminApp() {
             <div><h3 style={{ color: '#fff' }}>{pack.title}</h3><p style={{ color: '#bdc3c7', fontSize: '0.9rem' }}>共 {pack.questions.length} 題</p></div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button className="btn-summon" onClick={() => { setEditingPack(pack); setEditingQuestionId(null); }} style={{ padding: '10px', background: '#3498db' }}>編輯</button>
+              <button className="btn-summon" onClick={() => handleDeletePack(pack._id)} style={{ padding: '10px', background: '#e74c3c' }}>🗑️ 刪除</button>
               <button className="btn-summon" onClick={() => handleHostGame(pack._id)} style={{ padding: '10px', background: '#e67e22' }}>🚀 開房</button>
             </div>
           </div>
@@ -691,3 +724,4 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+```
