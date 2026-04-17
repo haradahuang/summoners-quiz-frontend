@@ -95,7 +95,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面 (Player View)
+// 🎮 玩家端介面
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -196,8 +196,9 @@ function PlayerApp() {
         </div>
       )}
 
+      {/* 移除原本的 max-height 和 overflow-y，由全局控制滾動 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel question-transition">
+        <div className="game-panel question-transition" style={{ paddingBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
@@ -211,7 +212,6 @@ function PlayerApp() {
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
 
-          {/* 👇 漸進猜圖題圖片區塊 👇 */}
           {currentQuestion?.type === 'guess' && !hasAnswered && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                 <div style={{ width: '220px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', boxShadow: '0 0 15px rgba(241,196,15,0.3)', background: '#000' }}>
@@ -220,7 +220,6 @@ function PlayerApp() {
                       alt="guess" 
                       style={{ 
                         width: '100%', height: '100%', objectFit: 'cover',
-                        // 動態濾鏡：依據倒數比例，最高 25px 模糊度，並且從灰階變回彩色
                         filter: `blur(${(timeLeft / currentQuestion.timeLimit) * 25}px) grayscale(${(timeLeft / currentQuestion.timeLimit) * 100}%)`,
                         transition: 'filter 1s linear'
                       }} 
@@ -301,14 +300,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel">
+         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel">
+        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {reviewData.question.type === 'guess' && (
@@ -369,13 +368,13 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', overflow: 'hidden' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-            {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem', margin: '20px 0'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
-            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem', margin: '20px 0'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
-            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem', margin: '20px 0'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
+            {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
+            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
+            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
           </div>
         </div>
       )}
@@ -396,7 +395,6 @@ function AdminApp() {
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
-  // 👇 加入了 guess 狀態 👇
   const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi' | 'guess'>('choice');
   const [newQText, setNewQText] = useState('');
   const [newTime, setNewTime] = useState(10);
@@ -405,11 +403,15 @@ function AdminApp() {
   const [newAns, setNewAns] = useState('A');
   const [newTfAns, setNewTfAns] = useState<'O' | 'X'>('O');
   const [newMultiAns, setNewMultiAns] = useState<string[]>([]);
-  const [newGuessImg, setNewGuessImg] = useState<string>(''); // 猜圖專屬
+  const [newGuessImg, setNewGuessImg] = useState<string>(''); 
   const [matchPairs, setMatchPairs] = useState([{ tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }]);
 
   const [players, setPlayers] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+  
+  // 👇 修正點 1：替主持人端補上專屬計時器，避免發生 NaN / undefined 錯誤 👇
+  const [timeLeft, setTimeLeft] = useState(0); 
+
   const [leaderboard, setLeaderboard] = useState<any[] | null>(null);
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
@@ -422,12 +424,25 @@ function AdminApp() {
   useEffect(() => {
     socket.on('room_created', ({ pin, joinUrl }) => { setHostingPin(pin); setHostingUrl(window.location.origin + joinUrl); });
     socket.on('update_players', (list) => setPlayers(list || []));
-    socket.on('receive_question', (q) => { setCurrentQuestion(q); setLeaderboard(null); setReviewData(null); setPodiumData(null); });
+    socket.on('receive_question', (q) => { 
+      setCurrentQuestion(q); 
+      setTimeLeft(q?.timeLimit || 15); // 同步接收秒數
+      setLeaderboard(null); setReviewData(null); setPodiumData(null); 
+    });
     socket.on('leaderboard_updated', setLeaderboard);
     socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); 
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
     return () => { socket.off(); };
   }, []);
+
+  // 👇 修正點 1：啟動主持人端的倒數計時，讓圖片的漸變特效能正常運作 👇
+  useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
+    if (currentQuestion && timeLeft > 0 && !leaderboard && !reviewData && !podiumData) {
+      timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000); 
+    }
+    return () => clearTimeout(timerId);
+  }, [currentQuestion, timeLeft, leaderboard, reviewData, podiumData]);
 
   const fetchQuizzes = async (user: string) => {
     try { const res = await fetch(`${API_URL}/quizzes/${user}`); const data = await res.json(); setQuizPacks(data); } 
@@ -467,7 +482,6 @@ function AdminApp() {
     const reader = new FileReader(); reader.onload = (event) => { const newPairs = [...matchPairs]; newPairs[index] = { ...newPairs[index], [field]: event.target?.result as string }; setMatchPairs(newPairs); }; reader.readAsDataURL(file);
   };
 
-  // 👇 新增猜圖上傳處理 👇
   const handleGuessImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
@@ -479,7 +493,7 @@ function AdminApp() {
     setQType(type);
     if (type === 'tf') setNewTime(5); 
     else if (type === 'match') setNewTime(30);
-    else if (type === 'guess') setNewTime(20); // 猜圖需要一點時間漸變
+    else if (type === 'guess') setNewTime(20);
     else setNewTime(10);
   };
 
@@ -516,7 +530,6 @@ function AdminApp() {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
-    // 👇 加入 guess 的儲存邏輯 👇
     if (qType === 'choice' || qType === 'multi' || qType === 'guess') {
       if (!newOptA.trim() || !newOptB.trim()) return alert('此題型請至少填寫 A 與 B 兩個選項！');
       if (qType === 'guess' && !newGuessImg) return alert('請上傳要讓玩家猜的圖片！');
@@ -566,7 +579,7 @@ function AdminApp() {
   if (hostingPin) {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
-      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
+      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -590,7 +603,6 @@ function AdminApp() {
                 <h3 style={{ color: '#34db98', marginBottom: '10px' }}>⏳ 題目作答中... (已答題: {players.filter(p => p.hasAnswered).length} / {players.length} 人)</h3>
                 <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1.5rem' }}>{currentQuestion.text}</h2>
                 
-                {/* 👇 猜圖題：主持端同步預覽變色 👇 */}
                 {currentQuestion.type === 'guess' && (
                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                       <div style={{ width: '220px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', background: '#000' }}>
@@ -649,7 +661,6 @@ function AdminApp() {
               <div>
                 <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
 
-                {/* 👇 猜圖題：主持端解答呈現清晰圖片 👇 */}
                 {reviewData.question.type === 'guess' && (
                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                       <div style={{ width: '150px', height: '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)' }}>
@@ -704,7 +715,7 @@ function AdminApp() {
               <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                 <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                 <div className="podium-content">
-                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem' }}>🏆 傳奇誕生 🏆</h2>
+                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
                   {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
                   {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
                   {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
@@ -718,9 +729,10 @@ function AdminApp() {
     );
   }
 
+  // 👇 修正點 2：拔除編輯器的 maxHeight / overflowY，完全靠外層統一滾動 👇
   if (editingPack) {
     return (
-      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
           <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -730,7 +742,6 @@ function AdminApp() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           {editingPack.questions.map((q: any, idx: number) => {
-            // 👇 題型顏色列表加上猜圖 👇
             const typeLabels: any = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜謎' };
             const typeColors: any = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393' };
             return (
@@ -763,7 +774,6 @@ function AdminApp() {
           
           <input type="text" placeholder="請輸入題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
 
-          {/* 👇 猜圖專屬：圖片上傳框 👇 */}
           {qType === 'guess' && (
             <div style={{ marginBottom: '15px' }}>
               <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '5px' }}>* 請上傳要讓玩家猜的圖片 (支援 JPG/PNG，建議1:1，限 300KB)</p>
@@ -867,10 +877,11 @@ function AdminApp() {
   );
 }
 
+// 👇 修正點 2：這裡設定了 overflowY: auto，讓全站只有這唯一一個原生捲軸，保證不卡死 👇
 export default function App() {
   return (
     <ErrorBoundary>
-      <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '8vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg")`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '8vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg")`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}><h1 className="text-glow">傳奇金頭腦挑戰賽</h1></div>
         <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
       </div>
