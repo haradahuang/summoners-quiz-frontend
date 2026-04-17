@@ -95,7 +95,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面
+// 🎮 玩家端介面 (Player View)
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -289,6 +289,7 @@ function PlayerApp() {
          </div>
       )}
 
+      {/* 玩家端正確答案畫面 */}
       {isJoined && reviewData && (
         <div className="game-panel">
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
@@ -320,34 +321,37 @@ function PlayerApp() {
              </div>
           )}
 
+          {/* 👇 玩家端配對解答：改為緊湊的 2x2 四宮格排版 👇 */}
           {reviewData.question.type === 'match' && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '10px', fontWeight: 'bold' }}>🎯 正確配對</p>
-               {(reviewData.question.topItems || []).map((top: any) => {
-                 const correctBottomId = reviewData.question.correctMatches[top.id];
-                 const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
-                 return (
-                   <div key={top.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                      <div style={{ textAlign: 'center', width: '80px' }}><img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain' }} /><p style={{ fontSize: '0.8rem', color: '#fff' }}>{top.name}</p></div>
-                      <span style={{ fontSize: '1.5rem' }}>🔗</span>
-                      <div style={{ textAlign: 'center', width: '80px' }}><img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain' }} /></div>
-                   </div>
-                 );
-               })}
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                 {(reviewData.question.topItems || []).map((top: any) => {
+                   const correctBottomId = reviewData.question.correctMatches[top.id];
+                   const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
+                   return (
+                     <div key={top.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
+                        <img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
+                        <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#fff', textAlign: 'center' }}>{top.name}</p>
+                        <span style={{ fontSize: '1.2rem', margin: '5px 0' }}>⬇️</span>
+                        <img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
+                     </div>
+                   );
+                 })}
+               </div>
              </div>
           )}
         </div>
       )}
 
-      {/* 頒獎台也移除 maxHeight，讓外層自然捲動 */}
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', overflow: 'hidden' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-            {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem', margin: '20px 0'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
-            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem', margin: '20px 0'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
-            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem', margin: '20px 0'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
+            {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
+            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
+            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
           </div>
         </div>
       )}
@@ -607,20 +611,24 @@ function AdminApp() {
                       </div>
                    </div>
                 )}
+                {/* 👇 主持人端配對解答：同樣改為緊湊的 2x2 網格排版 👇 */}
                 {reviewData.question.type === 'match' && (
                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                      <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '10px', fontWeight: 'bold' }}>🎯 正確配對</p>
-                     {(reviewData.question.topItems || []).map((top: any) => {
-                       const correctBottomId = reviewData.question.correctMatches[top.id];
-                       const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
-                       return (
-                         <div key={top.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                            <div style={{ textAlign: 'center', width: '80px' }}><img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain' }} /><p style={{ fontSize: '0.8rem', color: '#fff' }}>{top.name}</p></div>
-                            <span style={{ fontSize: '1.5rem' }}>🔗</span>
-                            <div style={{ textAlign: 'center', width: '80px' }}><img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain' }} /></div>
-                         </div>
-                       );
-                     })}
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                       {(reviewData.question.topItems || []).map((top: any) => {
+                         const correctBottomId = reviewData.question.correctMatches[top.id];
+                         const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
+                         return (
+                           <div key={top.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
+                              <img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
+                              <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#fff', textAlign: 'center' }}>{top.name}</p>
+                              <span style={{ fontSize: '1.2rem', margin: '5px 0' }}>⬇️</span>
+                              <img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
+                           </div>
+                         );
+                       })}
+                     </div>
                    </div>
                 )}
                 {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
@@ -784,6 +792,7 @@ function AdminApp() {
 export default function App() {
   return (
     <ErrorBoundary>
+      {/* 👇 恢復原生的全局滾動設定：移除 fixed 讓 body 負責滾動 👇 */}
       <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '8vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg")`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
         <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}><h1 className="text-glow">傳奇金頭腦挑戰賽</h1></div>
         <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
