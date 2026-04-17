@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
 // ==========================================
-// 🏆 動態洗牌排行榜引擎
+// 🏆 動態洗牌排行榜引擎 (修復長檔名破版)
 // ==========================================
 let globalLastLeaderboard: any[] = [];
 const LeaderboardView = ({ data }: { data: any[] }) => {
@@ -81,8 +81,13 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
             transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '0 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: `5px solid ${rankColor}`, zIndex: 20 - finalIdx
           }}>
-            <span style={{ color: isTop3 ? rankColor : '#FFF', fontSize, fontWeight, transition: 'all 0.5s' }}>#{finalIdx + 1} {player.username}</span>
-            <span style={{ color: isTop3 ? rankColor : '#FFD700', fontSize, fontWeight, transition: 'all 0.5s' }}>{player.score} 分</span>
+            {/* 👇 加入 flex: 1, whiteSpace: nowrap, overflow: hidden 處理長名字 👇 */}
+            <span title={player.username} style={{ color: isTop3 ? rankColor : '#FFF', fontSize, fontWeight, transition: 'all 0.5s', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left', paddingRight: '10px' }}>
+              #{finalIdx + 1} {player.username}
+            </span>
+            <span style={{ color: isTop3 ? rankColor : '#FFD700', fontSize, fontWeight, transition: 'all 0.5s', flexShrink: 0 }}>
+              {player.score} 分
+            </span>
           </div>
         );
       })}
@@ -91,7 +96,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面 (Player View)
+// 🎮 玩家端介面
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -108,7 +113,6 @@ function PlayerApp() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
 
-  // 題型專屬作答狀態
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
   const [multiSelected, setMultiSelected] = useState<string[]>([]);
@@ -193,8 +197,9 @@ function PlayerApp() {
         </div>
       )}
 
+      {/* 👇 加上 paddingBottom: '2rem' 讓手機版底部不會太貼齊 👇 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel question-transition" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+        <div className="game-panel question-transition" style={{ maxHeight: '85vh', overflowY: 'auto', paddingBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
@@ -216,7 +221,6 @@ function PlayerApp() {
             </div>
           )}
 
-          {/* 👇 高亮純白色的 O / X 作答按鈕 👇 */}
           {currentQuestion?.type === 'tf' && !hasAnswered && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
               <button onClick={() => handleChoiceClick('O')} style={{ padding: '1.5rem', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: '#00cc66', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #00994d', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>O</button>
@@ -281,15 +285,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+         <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto', paddingBottom: '2rem' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
-      {/* 玩家端正確答案畫面 */}
       {isJoined && reviewData && (
-        <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+        <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto', paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi') && (
@@ -307,11 +310,11 @@ function PlayerApp() {
              </div>
           )}
 
-          {/* 👇 高亮純白色的 O / X 正確答案展示 👇 */}
+          {/* 👇 玩家端：極簡化 O/X 正確答案展示 👇 */}
           {reviewData.question.type === 'tf' && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                <div style={{ padding: '2rem', fontSize: '3rem', fontFamily: 'Arial, sans-serif', fontWeight: 'bold', color: '#fff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000' }}>
-                  正解是: {reviewData.question.correctAnswer === 'O' ? 'O 對' : 'X 錯'}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '120px', height: '120px', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '20px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000', margin: '1rem auto' }}>
+                  {reviewData.question.correctAnswer}
                 </div>
                 <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
                   <span style={{color:'#00cc66'}}>O 答題人數: {reviewData.stats['O'] || 0}</span>
@@ -366,7 +369,6 @@ function AdminApp() {
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   
-  // 編輯器狀態
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
   const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi'>('choice');
   const [newQText, setNewQText] = useState('');
@@ -523,7 +525,7 @@ function AdminApp() {
   if (hostingPin) {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
-      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', maxHeight: '85vh', overflowY: podiumData ? 'hidden' : 'auto' }}>
+      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', maxHeight: '85vh', overflowY: podiumData ? 'hidden' : 'auto', paddingBottom: '2rem' }}>
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -537,6 +539,11 @@ function AdminApp() {
           </>
         ) : (
           <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#bdc3c7', fontSize: '0.9rem', marginBottom: '15px', borderBottom: '1px solid #444', paddingBottom: '10px' }}>
+              <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>👑 主持人模式</span>
+              <span>房間: {hostingPin} | 進場: {players.length} 人</span>
+            </div>
+
             {currentQuestion && !leaderboard && !reviewData && !podiumData && (
               <div className="question-transition">
                 <h3 style={{ color: '#34db98', marginBottom: '10px' }}>⏳ 題目作答中... (已答題: {players.filter(p => p.hasAnswered).length} / {players.length} 人)</h3>
@@ -546,7 +553,6 @@ function AdminApp() {
                     {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', borderLeft: `5px solid ${opt.color}`, color: '#fff' }}>{opt.text}</div>))}
                   </div>
                 )}
-                {/* 👇 高亮純白 O / X 主持人題目預覽 👇 */}
                 {currentQuestion.type === 'tf' && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.9 }}>
                     <div style={{ padding: '15px', background: '#00cc66', borderRadius: '10px', color: '#ffffff', textAlign:'center', fontSize:'2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 6px 0 #00994d' }}>O</div>
@@ -592,15 +598,15 @@ function AdminApp() {
                      })}
                    </div>
                 )}
-                {/* 👇 高亮純白 O / X 主持人解答預覽 👇 */}
+                {/* 👇 主持人端：極簡化 O/X 正確答案展示 👇 */}
                 {reviewData.question.type === 'tf' && (
                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                      <div style={{ padding: '1.5rem', fontSize: '2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: 'bold', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 6px 0 #00994d' : '0 6px 0 #cc0000' }}>
-                        正解: {reviewData.question.correctAnswer === 'O' ? 'O 對' : 'X 錯'}
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 6px 0 #00994d' : '0 6px 0 #cc0000', margin: '1rem auto' }}>
+                        {reviewData.question.correctAnswer}
                       </div>
                       <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                        <span style={{color:'#00cc66'}}>O : {reviewData.stats['O'] || 0}人</span>
-                        <span style={{color:'#ff3333'}}>X : {reviewData.stats['X'] || 0}人</span>
+                        <span style={{color:'#00cc66'}}>O 答題人數: {reviewData.stats['O'] || 0}</span>
+                        <span style={{color:'#ff3333'}}>X 答題人數: {reviewData.stats['X'] || 0}</span>
                       </div>
                    </div>
                 )}
@@ -633,7 +639,7 @@ function AdminApp() {
                   {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
                   {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
                 </div>
-                <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 結束並返回大廳</button>
+                <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 返回控制台</button>
               </div>
             )}
           </>
@@ -644,7 +650,7 @@ function AdminApp() {
 
   if (editingPack) {
     return (
-      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
+      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto', paddingBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
           <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -716,7 +722,6 @@ function AdminApp() {
             </>
           )}
 
-          {/* 👇 高亮純白 O / X 編輯器選擇 👇 */}
           {qType === 'tf' && (
             <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '15px' }}>
               <span style={{ color: '#fff' }}>設定正確答案:</span>
