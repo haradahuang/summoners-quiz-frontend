@@ -216,10 +216,11 @@ function PlayerApp() {
             </div>
           )}
 
+          {/* 👇 高亮純白色的 O / X 作答按鈕 👇 */}
           {currentQuestion?.type === 'tf' && !hasAnswered && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-              <button onClick={() => handleChoiceClick('O')} style={{ padding: '2rem', fontSize: '4rem', fontWeight: 'bold', color: '#fff', background: 'rgba(46, 204, 113, 0.8)', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #27ae60' }}>⭕</button>
-              <button onClick={() => handleChoiceClick('X')} style={{ padding: '2rem', fontSize: '4rem', fontWeight: 'bold', color: '#fff', background: 'rgba(231, 76, 60, 0.8)', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #c0392b' }}>❌</button>
+              <button onClick={() => handleChoiceClick('O')} style={{ padding: '1.5rem', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: '#00cc66', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #00994d', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>O</button>
+              <button onClick={() => handleChoiceClick('X')} style={{ padding: '1.5rem', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: '#ff3333', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #cc0000', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>X</button>
             </div>
           )}
 
@@ -286,6 +287,7 @@ function PlayerApp() {
          </div>
       )}
 
+      {/* 玩家端正確答案畫面 */}
       {isJoined && reviewData && (
         <div className="game-panel" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
@@ -305,14 +307,15 @@ function PlayerApp() {
              </div>
           )}
 
+          {/* 👇 高亮純白色的 O / X 正確答案展示 👇 */}
           {reviewData.question.type === 'tf' && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                <div style={{ padding: '2rem', fontSize: '3rem', color: '#fff', background: reviewData.question.correctAnswer === 'O' ? '#27ae60' : '#c0392b', borderRadius: '15px' }}>
-                  正解是: {reviewData.question.correctAnswer === 'O' ? '⭕ 對' : '❌ 錯'}
+                <div style={{ padding: '2rem', fontSize: '3rem', fontFamily: 'Arial, sans-serif', fontWeight: 'bold', color: '#fff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000' }}>
+                  正解是: {reviewData.question.correctAnswer === 'O' ? 'O 對' : 'X 錯'}
                 </div>
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '20px' }}>
-                  <span style={{color:'#2ecc71'}}>⭕ 答題人數: {reviewData.stats['O'] || 0}</span>
-                  <span style={{color:'#e74c3c'}}>❌ 答題人數: {reviewData.stats['X'] || 0}</span>
+                <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  <span style={{color:'#00cc66'}}>O 答題人數: {reviewData.stats['O'] || 0}</span>
+                  <span style={{color:'#ff3333'}}>X 答題人數: {reviewData.stats['X'] || 0}</span>
                 </div>
              </div>
           )}
@@ -352,7 +355,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 專屬管理端介面 (Admin UI Builder)
+// 👑 專屬管理端介面
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -412,23 +415,13 @@ function AdminApp() {
     } catch (e) { alert('伺服器連線失敗'); }
   };
 
-  // 👇 完全補回被誤刪的控制台操作功能 👇
-  const handleHostGame = (packId: string) => { 
-    socket.emit('host_create_room', packId); 
-    unlockAudio(); 
-  };
-
+  const handleHostGame = (packId: string) => { socket.emit('host_create_room', packId); unlockAudio(); };
   const handleDeletePack = async (packId: string) => {
     if (!window.confirm('確定要刪除這個題庫包嗎？此動作無法復原！')) return;
-    try { 
-      const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' }); 
-      if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); } 
-    } catch (e) { alert('刪除失敗'); }
+    try { const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' }); if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); } } catch (e) { alert('刪除失敗'); }
   };
 
-  const handleCreateNewPack = () => { 
-    setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] }); 
-  };
+  const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] }); };
   
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫名稱！');
@@ -553,10 +546,11 @@ function AdminApp() {
                     {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', borderLeft: `5px solid ${opt.color}`, color: '#fff' }}>{opt.text}</div>))}
                   </div>
                 )}
+                {/* 👇 高亮純白 O / X 主持人題目預覽 👇 */}
                 {currentQuestion.type === 'tf' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.8 }}>
-                    <div style={{ padding: '15px', background: '#27ae60', borderRadius: '10px', color: '#fff', textAlign:'center', fontSize:'2rem' }}>⭕ 對</div>
-                    <div style={{ padding: '15px', background: '#c0392b', borderRadius: '10px', color: '#fff', textAlign:'center', fontSize:'2rem' }}>❌ 錯</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.9 }}>
+                    <div style={{ padding: '15px', background: '#00cc66', borderRadius: '10px', color: '#ffffff', textAlign:'center', fontSize:'2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 6px 0 #00994d' }}>O</div>
+                    <div style={{ padding: '15px', background: '#ff3333', borderRadius: '10px', color: '#ffffff', textAlign:'center', fontSize:'2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 6px 0 #cc0000' }}>X</div>
                   </div>
                 )}
                 {currentQuestion.type === 'match' && (
@@ -598,10 +592,16 @@ function AdminApp() {
                      })}
                    </div>
                 )}
+                {/* 👇 高亮純白 O / X 主持人解答預覽 👇 */}
                 {reviewData.question.type === 'tf' && (
                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                      <div style={{ padding: '1rem', fontSize: '2rem', color: '#fff', background: reviewData.question.correctAnswer === 'O' ? '#27ae60' : '#c0392b', borderRadius: '15px' }}>正解: {reviewData.question.correctAnswer === 'O' ? '⭕ 對' : '❌ 錯'}</div>
-                      <div style={{ marginTop: '1rem', display: 'flex', gap: '20px' }}><span style={{color:'#2ecc71'}}>⭕ : {reviewData.stats['O'] || 0}人</span><span style={{color:'#e74c3c'}}>❌ : {reviewData.stats['X'] || 0}人</span></div>
+                      <div style={{ padding: '1.5rem', fontSize: '2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: 'bold', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 6px 0 #00994d' : '0 6px 0 #cc0000' }}>
+                        正解: {reviewData.question.correctAnswer === 'O' ? 'O 對' : 'X 錯'}
+                      </div>
+                      <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                        <span style={{color:'#00cc66'}}>O : {reviewData.stats['O'] || 0}人</span>
+                        <span style={{color:'#ff3333'}}>X : {reviewData.stats['X'] || 0}人</span>
+                      </div>
                    </div>
                 )}
                 {reviewData.question.type === 'match' && (
@@ -612,9 +612,9 @@ function AdminApp() {
                        const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
                        return (
                          <div key={top.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                            <div style={{ textAlign: 'center', width: '80px' }}><img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} /><p style={{ fontSize: '0.8rem', color: '#fff' }}>{top.name}</p></div>
+                            <div style={{ textAlign: 'center', width: '80px' }}><img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain' }} /><p style={{ fontSize: '0.8rem', color: '#fff' }}>{top.name}</p></div>
                             <span style={{ fontSize: '1.5rem' }}>🔗</span>
-                            <div style={{ textAlign: 'center', width: '80px' }}><img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} /></div>
+                            <div style={{ textAlign: 'center', width: '80px' }}><img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '100%', height: '60px', objectFit: 'contain' }} /></div>
                          </div>
                        );
                      })}
@@ -716,11 +716,12 @@ function AdminApp() {
             </>
           )}
 
+          {/* 👇 高亮純白 O / X 編輯器選擇 👇 */}
           {qType === 'tf' && (
             <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '15px' }}>
               <span style={{ color: '#fff' }}>設定正確答案:</span>
-              <button onClick={() => setNewTfAns('O')} style={{ padding: '10px 20px', fontSize: '1.2rem', background: newTfAns === 'O' ? '#27ae60' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'O' ? '2px solid #fff' : 'none', borderRadius: '5px', cursor: 'pointer' }}>⭕ 圈</button>
-              <button onClick={() => setNewTfAns('X')} style={{ padding: '10px 20px', fontSize: '1.2rem', background: newTfAns === 'X' ? '#c0392b' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'X' ? '2px solid #fff' : 'none', borderRadius: '5px', cursor: 'pointer' }}>❌ 叉</button>
+              <button onClick={() => setNewTfAns('O')} style={{ padding: '10px 25px', fontSize: '1.8rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', background: newTfAns === 'O' ? '#00cc66' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'O' ? '2px solid #fff' : 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: newTfAns === 'O' ? '0 4px 0 #00994d' : 'none' }}>O</button>
+              <button onClick={() => setNewTfAns('X')} style={{ padding: '10px 25px', fontSize: '1.8rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', background: newTfAns === 'X' ? '#ff3333' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'X' ? '2px solid #fff' : 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: newTfAns === 'X' ? '0 4px 0 #cc0000' : 'none' }}>X</button>
             </div>
           )}
 
