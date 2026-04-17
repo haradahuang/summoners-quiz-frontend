@@ -379,6 +379,25 @@ function AdminApp() {
     try { const res = await fetch(`${API_URL}/quizzes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPack) }); if (res.ok) { alert('💾 題庫包儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); } } catch(e) { alert('儲存失敗'); }
   };
 
+  // 👇 新增：檔案上傳轉換機制 (限重 300KB) 👇
+  const handleImageUpload = (index: number, field: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 300 * 1024) {
+      alert(`⚠️ 圖片「${file.name}」檔案太大！\n為了確保遊戲順暢，請壓縮至 300KB 以內再上傳喔！`);
+      e.target.value = ''; 
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64String = event.target?.result as string;
+      updateMatchPair(index, field, base64String);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleAddQuestion = () => {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: Date.now(), type: qType, text: newQText, timeLimit: newTime };
@@ -394,7 +413,7 @@ function AdminApp() {
       newQ.correctAnswer = newAns; newQ.options = options;
     } else {
       const isComplete = matchPairs.every(p => p.tName && p.tImg && p.bImg);
-      if (!isComplete) return alert('請確保 4 組配驚的名字與圖片網址都有填寫！');
+      if (!isComplete) return alert('請確保 4 組配對的名字與圖片都已上傳填寫！');
       newQ.topItems = matchPairs.map((p, i) => ({ id: `T${i+1}`, name: p.tName, img: p.tImg }));
       newQ.bottomItems = matchPairs.map((p, i) => ({ id: `B${i+1}`, img: p.bImg }));
       newQ.correctMatches = { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' };
@@ -407,10 +426,12 @@ function AdminApp() {
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
   const updateMatchPair = (index: number, field: string, value: string) => { const newPairs = [...matchPairs]; newPairs[index] = { ...newPairs[index], [field]: value }; setMatchPairs(newPairs); };
 
-  // 👇 加入退出房間邏輯 👇
+  // 👇 返回控制台邏輯 (強制關閉所有音樂) 👇
   const handleReturnToDashboard = () => {
     sfx.victory.pause(); sfx.victory.currentTime = 0;
     sfx.cheer.pause(); sfx.cheer.currentTime = 0;
+    sfx.bgm.pause(); sfx.bgm.currentTime = 0;
+    
     setHostingPin(null); setHostingUrl(null); setPlayers([]);
     setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
   };
@@ -526,7 +547,6 @@ function AdminApp() {
               </div>
             )}
 
-            {/* 👇 主持人的頒獎台加上「返回控制台」按鈕 👇 */}
             {podiumData && (
               <div style={{ animation: 'bounceIn 1s ease' }}>
                 <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div><div className="firework fw-3">✨</div><div className="firework fw-4">🎊</div>
@@ -536,7 +556,7 @@ function AdminApp() {
                   {podiumData?.[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem', margin: '20px 0'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
                   {podiumData?.[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem', margin: '20px 0'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
                 </div>
-                
+                {/* 👇 返回控制台按鈕 👇 */}
                 <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px' }}>🏠 返回控制台</button>
               </div>
             )}
@@ -598,16 +618,30 @@ function AdminApp() {
             </>
           )}
 
+          {/* 👇 圖片配對題專屬 UI：使用檔案上傳取代文字框 👇 */}
           {qType === 'match' && (
             <div style={{ textAlign: 'left', marginTop: '10px' }}>
-              <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>* 請依照正確配對組合填寫，系統發送題目時會自動為玩家打亂圖片順序！</p>
+              <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>
+                * 請依照正確配對組合上傳。建議尺寸 1:1 (如 300x300 px)，支援 JPG/PNG，單張大小限 <strong>300KB</strong> 內。
+              </p>
               {matchPairs.map((pair, index) => (
-                <div key={index} style={{ display: 'flex', gap: '5px', marginBottom: '5px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '5px', borderRadius: '5px' }}>
+                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '5px' }}>
                   <span style={{ color: '#fff', width: '20px' }}>{index+1}.</span>
                   <input type="text" placeholder="魔靈名字" value={pair.tName} onChange={e => updateMatchPair(index, 'tName', e.target.value)} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 1 }} />
-                  <input type="text" placeholder="魔靈圖片網址 (.jpg)" value={pair.tImg} onChange={e => updateMatchPair(index, 'tImg', e.target.value)} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 2 }} />
-                  <span style={{ color: '#2ecc71', margin: '0 5px' }}>🔗</span>
-                  <input type="text" placeholder="目標美腿網址 (.jpg)" value={pair.bImg} onChange={e => updateMatchPair(index, 'bImg', e.target.value)} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 2 }} />
+                  
+                  {/* 魔靈圖上傳按鈕 */}
+                  <label style={{ flex: 1, height: '40px', background: 'rgba(0,0,0,0.3)', border: '1px dashed #3498db', borderRadius: '5px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                    {pair.tImg ? <img src={pair.tImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.8rem', color: '#3498db'}}>+ 選擇圖片</span>}
+                    <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={(e) => handleImageUpload(index, 'tImg', e)} />
+                  </label>
+
+                  <span style={{ color: '#2ecc71', margin: '0 2px' }}>🔗</span>
+
+                  {/* 目標圖上傳按鈕 */}
+                  <label style={{ flex: 1, height: '40px', background: 'rgba(0,0,0,0.3)', border: '1px dashed #e74c3c', borderRadius: '5px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                    {pair.bImg ? <img src={pair.bImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.8rem', color: '#e74c3c'}}>+ 選擇圖片</span>}
+                    <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={(e) => handleImageUpload(index, 'bImg', e)} />
+                  </label>
                 </div>
               ))}
             </div>
