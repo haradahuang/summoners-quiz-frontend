@@ -315,9 +315,11 @@ function AdminApp() {
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   
+  // 👇 編輯器狀態：增加 tracking 修改題目的 ID 👇
+  const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
   const [qType, setQType] = useState<'choice' | 'match'>('choice');
   const [newQText, setNewQText] = useState('');
-  const [newTime, setNewTime] = useState(15);
+  const [newTime, setNewTime] = useState(10); // 預設單選題 10 秒
   const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
   const [newOptC, setNewOptC] = useState(''); const [newOptD, setNewOptD] = useState('');
   const [newAns, setNewAns] = useState('A');
@@ -374,39 +376,75 @@ function AdminApp() {
   };
 
   const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] }); };
-
-  // 👇 修改點：加入完整的儲存失敗捕捉邏輯 👇
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫題庫包名稱！');
     try { 
-      const res = await fetch(`${API_URL}/quizzes`, { 
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPack) 
-      }); 
-      if (res.ok) { 
-        alert('💾 題庫包儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); 
-      } else {
-        alert('⚠️ 儲存失敗：伺服器拒絕請求 (可能是圖片總容量過大，請確認每張圖都在 300KB 以內！)');
-      }
-    } catch(e) { 
-      alert('連線失敗：請檢查網路或稍後再試'); 
-    }
+      const res = await fetch(`${API_URL}/quizzes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingPack) }); 
+      if (res.ok) { alert('💾 題庫包儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); } else { alert('⚠️ 儲存失敗：伺服器拒絕請求 (可能是圖片總容量過大，請確認每張圖都在 300KB 以內！)'); }
+    } catch(e) { alert('連線失敗：請檢查網路或稍後再試'); }
   };
 
   const handleImageUpload = (index: number, field: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 300 * 1024) {
-      alert(`⚠️ 圖片「${file.name}」檔案太大！\n為了確保遊戲順暢，請壓縮至 300KB 以內再上傳喔！`);
-      e.target.value = ''; return;
-    }
+    if (file.size > 300 * 1024) { alert(`⚠️ 圖片「${file.name}」檔案太大！\n為了確保遊戲順暢，請壓縮至 300KB 以內再上傳喔！`); e.target.value = ''; return; }
     const reader = new FileReader();
     reader.onload = (event) => { updateMatchPair(index, field, event.target?.result as string); };
     reader.readAsDataURL(file);
   };
 
-  const handleAddQuestion = () => {
+  // 👇 智慧判斷題型並調整預設秒數 👇
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const type = e.target.value as 'choice' | 'match';
+    setQType(type);
+    setNewTime(type === 'choice' ? 10 : 30);
+  };
+
+  // 👇 把現有題目資料填回表單的修改功能 👇
+  const handleEditQuestion = (q: any) => {
+    setEditingQuestionId(q.id);
+    setQType(q.type);
+    setNewQText(q.text);
+    setNewTime(q.timeLimit);
+
+    if (q.type === 'choice') {
+      setNewOptA(q.options[0]?.text || '');
+      setNewOptB(q.options[1]?.text || '');
+      setNewOptC(q.options[2]?.text || '');
+      setNewOptD(q.options[3]?.text || '');
+      setNewAns(q.correctAnswer || 'A');
+    } else {
+      const pairs = [
+        { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' },
+        { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }
+      ];
+      q.topItems?.forEach((t: any, i: number) => {
+        pairs[i].tName = t.name;
+        pairs[i].tImg = t.img;
+        const bId = q.correctMatches[t.id];
+        const bItem = q.bottomItems?.find((b:any) => b.id === bId);
+        pairs[i].bImg = bItem?.img || '';
+      });
+      setMatchPairs(pairs);
+    }
+    
+    // 平滑捲動到編輯表單
+    setTimeout(() => {
+      document.getElementById('question-edit-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handleCancelEditQuestion = () => {
+    setEditingQuestionId(null);
+    setQType('choice'); setNewTime(10); setNewQText('');
+    setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD(''); setNewAns('A');
+    setMatchPairs([{ tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }]);
+  };
+
+  // 👇 儲存題目 (支援新增與更新) 👇
+  const handleSaveQuestion = () => {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
-    let newQ: any = { id: Date.now(), type: qType, text: newQText, timeLimit: newTime };
+    let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
     if (qType === 'choice') {
       if (!newOptA.trim() || !newOptB.trim()) return alert('單選題請至少填寫 A 與 B 兩個選項！');
@@ -424,9 +462,15 @@ function AdminApp() {
       newQ.bottomItems = matchPairs.map((p, i) => ({ id: `B${i+1}`, img: p.bImg }));
       newQ.correctMatches = { 'T1':'B1', 'T2':'B2', 'T3':'B3', 'T4':'B4' };
     }
-    setEditingPack({ ...editingPack, questions: [...editingPack.questions, newQ] });
-    setNewQText(''); setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD('');
-    setMatchPairs([{ tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }]);
+
+    if (editingQuestionId) {
+      // 更新現有題目
+      setEditingPack({ ...editingPack, questions: editingPack.questions.map((q: any) => q.id === editingQuestionId ? newQ : q) });
+    } else {
+      // 新增題目
+      setEditingPack({ ...editingPack, questions: [...editingPack.questions, newQ] });
+    }
+    handleCancelEditQuestion(); // 清空表單並退出編輯模式
   };
 
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
@@ -436,7 +480,6 @@ function AdminApp() {
     sfx.victory.pause(); sfx.victory.currentTime = 0;
     sfx.cheer.pause(); sfx.cheer.currentTime = 0;
     sfx.bgm.pause(); sfx.bgm.currentTime = 0;
-    
     setHostingPin(null); setHostingUrl(null); setPlayers([]);
     setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
   };
@@ -575,7 +618,7 @@ function AdminApp() {
       <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h2 style={{ color: '#FFD700' }}>✏️ 題庫包編輯器</h2>
-          <button onClick={() => setEditingPack(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>放棄並返回</button>
+          <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>放棄並返回</button>
         </div>
 
         <input type="text" value={editingPack.title} onChange={(e) => setEditingPack({...editingPack, title: e.target.value})} placeholder="請輸入題庫包名稱 (如: 週末公會大賽)" className="game-input" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f1c40f' }} />
@@ -588,15 +631,24 @@ function AdminApp() {
                 <span style={{ background: q.type==='choice'?'#3498db':'#9b59b6', padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', marginRight: '10px' }}>{q.type==='choice'?'單選':'配對'}</span>
                 <strong>Q{idx + 1}. {q.text}</strong>
               </div>
-              <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px' }}>刪除</button>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                {/* 👇 加入修改按鈕 👇 */}
+                <button onClick={() => handleEditQuestion(q)} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>修改</button>
+                <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>刪除</button>
+              </div>
             </div>
           ))}
         </div>
 
-        <div style={{ background: 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '10px', marginTop: '2rem', border: '1px dashed #7f8c8d' }}>
-          <h3 style={{ color: '#2ecc71', marginBottom: '15px' }}>➕ 新增一題</h3>
+        {/* 👇 讓修改時可以自動跳到這個區塊 👇 */}
+        <div id="question-edit-form" style={{ background: editingQuestionId ? 'rgba(243, 156, 18, 0.15)' : 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '10px', marginTop: '2rem', border: editingQuestionId ? '2px solid #f39c12' : '1px dashed #7f8c8d', transition: 'all 0.3s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ color: editingQuestionId ? '#f39c12' : '#2ecc71', margin: 0 }}>{editingQuestionId ? '✏️ 修改題目' : '➕ 新增一題'}</h3>
+            {editingQuestionId && <button onClick={handleCancelEditQuestion} style={{ background: 'transparent', border: '1px solid #e74c3c', color: '#e74c3c', padding: '3px 8px', borderRadius: '5px', cursor: 'pointer' }}>取消修改</button>}
+          </div>
+
           <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-            <select value={qType} onChange={(e) => setQType(e.target.value as any)} className="game-input" style={{ flex: 1 }}>
+            <select value={qType} onChange={handleTypeChange} className="game-input" style={{ flex: 1 }}>
               <option value="choice">單選題</option>
               <option value="match">圖片配對題</option>
             </select>
@@ -648,7 +700,9 @@ function AdminApp() {
             </div>
           )}
 
-          <button className="btn-summon" onClick={handleAddQuestion} style={{ marginTop: '15px', background: '#3498db', fontSize: '1rem', padding: '10px' }}>加入這題至題庫包</button>
+          <button className="btn-summon" onClick={handleSaveQuestion} style={{ marginTop: '15px', background: editingQuestionId ? '#f39c12' : '#3498db', fontSize: '1rem', padding: '10px' }}>
+            {editingQuestionId ? '💾 儲存修改' : '➕ 加入這題至題庫包'}
+          </button>
         </div>
 
         <button className="btn-summon" onClick={handleSavePack} style={{ marginTop: '20px', background: '#2ecc71' }}>💾 儲存並發布題庫包</button>
