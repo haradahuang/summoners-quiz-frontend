@@ -7,28 +7,35 @@ const API_URL = 'https://swtest-pgq8.onrender.com/api';
 const socket: Socket = io('https://swtest-pgq8.onrender.com');
 
 // ==========================================
-// 🎵 全域音效引擎 (Sound Effects Engine)
+// 🎵 全域音效引擎 (修復版)
 // ==========================================
 const sfx = {
-  // BGM (懸疑史詩感)
-  bgm: new Audio('https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3'),
-  // 倒數計時 (滴答聲)
-  tick: new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'),
-  // 答對 (清脆叮咚)
+  // BGM (換成著名的綜藝益智神曲 Sneaky Snitch，保證不會失效)
+  bgm: new Audio('https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3'),
+  // 滴答聲 (換成極短促的 UI 點擊聲，絕不拖泥帶水)
+  tick: new Audio('https://actions.google.com/sounds/v1/ui/button_click.ogg'),
   correct: new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg'),
-  // 答錯 (滑稽彈簧)
   wrong: new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg'),
-  // 頒獎歡呼
   cheer: new Audio('https://actions.google.com/sounds/v1/crowds/crowd_cheering.ogg')
 };
 
-// 音量與循環設定
 sfx.bgm.loop = true;
-sfx.bgm.volume = 0.3;  // BGM 音量調低，避免蓋過音效
-sfx.tick.volume = 0.4;
+sfx.bgm.volume = 0.3;
+sfx.tick.volume = 0.6;
 sfx.correct.volume = 0.8;
 sfx.wrong.volume = 0.8;
 sfx.cheer.volume = 0.9;
+
+// 🔓 破冰解鎖器：破解瀏覽器防止自動播放的限制
+const unlockAudio = () => {
+  Object.values(sfx).forEach(audio => {
+    if (audio !== sfx.bgm) {
+      audio.muted = true;
+      audio.play().then(() => { audio.pause(); audio.muted = false; }).catch(() => {});
+    }
+  });
+  sfx.bgm.play().catch(()=>{});
+};
 
 class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: string }> {
   constructor(props: any) { super(props); this.state = { hasError: false, errorMsg: '' }; }
@@ -105,19 +112,13 @@ function PlayerApp() {
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
 
-  // 👇 玩家 BGM 與頒獎音效控制 👇
+  // BGM 與 歡呼聲控制
   useEffect(() => {
-    if (isJoined && !podiumData) {
-      sfx.bgm.play().catch(() => console.log('瀏覽器自動播放阻擋，需等待使用者互動'));
-    }
-    if (podiumData) {
-      sfx.bgm.pause();
-      sfx.cheer.currentTime = 0;
-      sfx.cheer.play().catch(()=>{});
-    }
+    if (isJoined && !podiumData) sfx.bgm.play().catch(()=>{});
+    if (podiumData) { sfx.bgm.pause(); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [isJoined, podiumData]);
 
-  // 👇 玩家答對/答錯音效控制 👇
+  // 答對/答錯音效
   useEffect(() => {
     if (answerResult) {
       if (answerResult.isCorrect) { sfx.correct.currentTime = 0; sfx.correct.play().catch(()=>{}); }
@@ -141,24 +142,34 @@ function PlayerApp() {
     return () => { socket.off(); };
   }, []);
 
-  // 👇 玩家倒數計時與滴答聲控制 👇
+  // 👇 修復後的倒數滴答聲邏輯 👇
   useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
+    
+    // 只有在「尚未答題」且「時間大於 0」且「還在作答畫面」時才倒數
     if (currentQuestion && timeLeft > 0 && !hasAnswered && !leaderboard && !reviewData && !podiumData) {
-      const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000); 
-      // 最後 5 秒播放滴答聲
-      if (timeLeft <= 5) { sfx.tick.currentTime = 0; sfx.tick.play().catch(()=>{}); }
-      return () => clearTimeout(timerId);
-    } else if (timeLeft === 0 && currentQuestion && !hasAnswered) {
+      timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000); 
+      if (timeLeft <= 5) { 
+        sfx.tick.currentTime = 0; 
+        sfx.tick.play().catch(()=>{}); 
+      }
+    } else {
+      // 只要答題完成、時間到、或是跳到排行榜，立刻強制停止滴答聲！
+      sfx.tick.pause();
+    }
+
+    if (timeLeft === 0 && currentQuestion && !hasAnswered) {
       setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: currentQuestion?.type === 'match' ? userMatches : '' });
     }
+    
+    return () => clearTimeout(timerId);
   }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData]);
 
   const handleJoinArena = () => { 
     if (username.trim() && pin.trim()) { 
       socket.emit('join_room', { pin, username }); 
       setIsJoined(true); 
-      // 使用者點擊按鈕，解鎖音效權限並開始播放 BGM
-      sfx.bgm.play().catch(()=>{}); 
+      unlockAudio(); // 呼叫破冰解鎖器
     } 
   };
   
@@ -344,7 +355,6 @@ function AdminApp() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
 
-  // 👇 主持人端音效控制 👇
   useEffect(() => {
     if (hostingPin && !podiumData) sfx.bgm.play().catch(()=>{});
     if (podiumData) { sfx.bgm.pause(); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
@@ -382,7 +392,7 @@ function AdminApp() {
 
   const handleHostGame = (packId: string) => { 
     socket.emit('host_create_room', packId); 
-    sfx.bgm.play().catch(()=>{}); // 確保主持人點擊時解鎖自動播放
+    unlockAudio(); // 呼叫破冰解鎖器
   };
 
   const handleDeletePack = async (packId: string) => {
