@@ -7,44 +7,43 @@ const API_URL = 'https://swtest-pgq8.onrender.com/api';
 const socket: Socket = io('https://swtest-pgq8.onrender.com');
 
 // ==========================================
-// 🎵 全域音效引擎 (終極版)
+// 🎵 全域音效引擎 (終極結界突破版)
 // ==========================================
-const sfx = {
-  // BGM (益智節目神曲)
+const sfx: Record<string, HTMLAudioElement> = {
   bgm: new Audio('https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sneaky%20Snitch.mp3'),
-  // 倒數滴答聲
   tick: new Audio('https://actions.google.com/sounds/v1/ui/button_click.ogg'),
-  // 👇 答對音效 (換成經典清脆的遊戲過關叮咚聲)
-  correct: new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'),
-  // 答錯音效
+  // 👇 換成經典的綜藝「叮咚、叮咚、叮咚」清脆過關聲
+  correct: new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_bb630cc098.mp3'),
   wrong: new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg'),
-  // 👇 頒獎台專屬勝利音樂
-  victory: new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'),
-  // 頒獎台群眾歡呼聲
-  cheer: new Audio('https://actions.google.com/sounds/v1/crowds/crowd_cheering.ogg')
+  // 👇 頒獎台：史詩級勝利號角 + 巨型群眾歡呼聲 (換成高穩定 CDN)
+  victory: new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3'),
+  cheer: new Audio('https://cdn.pixabay.com/download/audio/2022/01/18/audio_d1a1669b0a.mp3')
 };
 
+// 設定預設音量與預載
+Object.values(sfx).forEach(audio => { audio.preload = 'auto'; });
 sfx.bgm.loop = true;
-sfx.bgm.volume = 0.3;
-sfx.tick.volume = 0.6;
-sfx.correct.volume = 0.8;
-sfx.wrong.volume = 0.8;
-sfx.victory.volume = 0.7;
-sfx.cheer.volume = 0.9;
 
-// 🔓 強化版破冰解鎖器：確保 Safari/iOS 也能完美預載所有聲音
+// 🔓 「微音量」破冰解鎖器：徹底騙過 iOS Safari 與 Chrome
 const unlockAudio = () => {
-  Object.values(sfx).forEach(audio => {
-    audio.muted = true;
+  const originalVolumes: Record<string, number> = { bgm: 0.3, tick: 0.6, correct: 0.8, wrong: 0.8, victory: 0.7, cheer: 0.9 };
+  
+  Object.keys(sfx).forEach(key => {
+    const audio = sfx[key];
+    // 用極小音量播一下，讓瀏覽器批准這個元件可以隨時發出聲音
+    audio.volume = 0.01; 
     audio.play().then(() => {
       audio.pause();
       audio.currentTime = 0;
-      audio.muted = false;
+      audio.volume = originalVolumes[key]; // 恢復正常音量
     }).catch(() => {});
   });
-  // 單獨將 BGM 解除靜音並播放
-  sfx.bgm.muted = false;
-  sfx.bgm.play().catch(()=>{});
+
+  // 特別把 BGM 獨立啟動
+  setTimeout(() => {
+    sfx.bgm.volume = 0.3;
+    sfx.bgm.play().catch(()=>{});
+  }, 100);
 };
 
 class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: string }> {
