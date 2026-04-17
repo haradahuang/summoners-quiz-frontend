@@ -182,7 +182,6 @@ function PlayerApp() {
         </div>
       )}
 
-      {/* 👇 玩家端畫面加上 maxHeight 防止破版 👇 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
         <div className="game-panel question-transition" key={currentQuestion.id} style={{ maxHeight: '85vh', overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
@@ -287,8 +286,9 @@ function PlayerApp() {
         </div>
       )}
 
+      {/* 👇 修復點 2：將 overflowY 改為 hidden 避免煙火造成捲軸閃爍 👇 */}
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', overflow: 'hidden' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div><div className="firework fw-3">✨</div><div className="firework fw-4">🎊</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -377,16 +377,10 @@ function AdminApp() {
 
   const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, questions: [] }); };
   
-  // 👇 修復點 1：正確傳送 _id 讓後端覆蓋更新 👇
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫題庫包名稱！');
     try { 
-      const payload = {
-        id: editingPack._id, // 確保送出舊有 _id
-        title: editingPack.title,
-        author: editingPack.author,
-        questions: editingPack.questions
-      };
+      const payload = { id: editingPack._id, title: editingPack.title, author: editingPack.author, questions: editingPack.questions };
       const res = await fetch(`${API_URL}/quizzes`, { 
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) 
       }); 
@@ -506,8 +500,8 @@ function AdminApp() {
     const answeredCount = players.filter(p => p.hasAnswered).length;
 
     return (
-      // 👇 修復點 2：加入 maxHeight: 85vh 防止畫面超出螢幕無法往下滾動 👇
-      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
+      // 修復點 2：頒獎台時強制隱藏捲軸 (overflowY: podiumData ? 'hidden' : 'auto')
+      <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', maxHeight: '85vh', overflowY: podiumData ? 'hidden' : 'auto' }}>
         {!isGameStarted ? (
           <>
             <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -540,13 +534,23 @@ function AdminApp() {
                     ))}
                   </div>
                 )}
+                {/* 👇 修復點 1：主持人端同步顯示上下兩排選項 👇 */}
                 {currentQuestion.type === 'match' && (
                   <div style={{ color: '#bdc3c7', fontSize: '0.9rem', opacity: 0.8, pointerEvents: 'none' }}>
                     <p style={{ marginBottom: '10px' }}>[圖片配對題選項]</p>
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
                        {(currentQuestion.topItems || []).map((item: any, idx: number) => (
                          <div key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', color: '#fff', textAlign: 'center' }}>
                            <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px', display: 'block' }} /><span style={{ fontSize: '0.8rem' }}>{item.name}</span>
+                         </div>
+                       ))}
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                       {(currentQuestion.bottomItems || []).map((item: any, idx: number) => (
+                         <div key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', color: '#fff', textAlign: 'center' }}>
+                           <img src={item.img} alt="bottom" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px', display: 'block' }} />
                          </div>
                        ))}
                     </div>
@@ -601,8 +605,9 @@ function AdminApp() {
               </div>
             )}
 
+            {/* 👇 修復點 2：確保這裡的 style 只有 position: relative 而不是覆蓋整個捲軸設定 👇 */}
             {podiumData && (
-              <div style={{ animation: 'bounceIn 1s ease' }}>
+              <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                 <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div><div className="firework fw-3">✨</div><div className="firework fw-4">🎊</div>
                 <div className="podium-content">
                   <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -610,7 +615,7 @@ function AdminApp() {
                   {podiumData?.[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem', margin: '20px 0'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
                   {podiumData?.[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem', margin: '20px 0'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
                 </div>
-                <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px' }}>🏠 返回控制台</button>
+                <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 返回控制台</button>
               </div>
             )}
           </>
@@ -715,7 +720,7 @@ function AdminApp() {
   }
 
   return (
-    <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
+    <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
         <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板 ({adminUser})</h2>
         <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
