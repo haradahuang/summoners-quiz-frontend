@@ -40,36 +40,31 @@ const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T
 const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜圖', order: '排序' };
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
-const DEFAULT_TITLE = '傳奇金頭腦挑戰賽';
+// 👇 品牌全面升級為：瞬答 FlashQuiz 👇
+const DEFAULT_TITLE = '瞬答 FlashQuiz';
 const DEFAULT_BG = 'https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg';
 
-// 👇 修復點：最穩定的共用背景排版框架 👇
 const PageLayout = ({ title, bgImg, children }: { title: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      width: '100%', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      paddingTop: '5vh', 
-      paddingBottom: '10vh', 
-      fontFamily: '"Noto Sans TC", sans-serif',
-      backgroundColor: '#000', // 確保沒圖時是純黑底
-      backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'fixed' // 鎖定背景不隨捲軸滾動
-    }}>
-      <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}>
-        <h1 className="text-glow">{title || DEFAULT_TITLE}</h1>
+    <>
+      <div style={{
+        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1,
+        backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
+        backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
+      }} />
+      <div style={{ 
+        minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
+        paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif'
+      }}>
+        <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}>
+          <h1 className="text-glow">{title || DEFAULT_TITLE}</h1>
+        </div>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
+          {children}
+        </div>
       </div>
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
-        {children}
-      </div>
-    </div>
+    </>
   );
 };
 
@@ -144,6 +139,15 @@ function PlayerApp() {
       else { sfx.wrong.currentTime = 0; sfx.wrong.play().catch(()=>{}); }
     }
   }, [answerResult]);
+
+  useEffect(() => {
+    if (pin && pin.trim().length > 0) {
+      socket.emit('check_room', pin);
+    } else {
+      setRoomTitle(DEFAULT_TITLE);
+      setRoomBg(DEFAULT_BG);
+    }
+  }, [pin]);
 
   useEffect(() => {
     socket.on('room_info', (info) => {
@@ -638,13 +642,29 @@ function AdminApp() {
   if (hostingPin) { displayTitle = roomTitle; displayBg = roomBg; }
   else if (editingPack) { displayTitle = editingPack.title || '編輯題庫包'; displayBg = editingPack.backgroundImg || DEFAULT_BG; }
 
+  // 👇 套用全新瞬答 FlashQuiz 發光 LOGO 與登入排版 👇
   if (!adminUser) return (
-    <PageLayout title="🔧 登入創作者後台" bgImg={DEFAULT_BG}>
-      <div className="game-panel" style={{ maxWidth: '400px', margin: '0 auto' }}>
-        <input type="text" placeholder="帳號" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
-        <input type="password" placeholder="密碼" value={password} onChange={(e) => setPassword(e.target.value)} className="game-input" />
-        <button className="btn-summon" onClick={handleAuth}>{authMode === 'login' ? '登入' : '註冊'}</button>
-        <p style={{ marginTop: '10px', cursor: 'pointer', color: '#3498db' }} onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}>{authMode === 'login' ? '沒有帳號？點此註冊' : '已有帳號？點此登入'}</p>
+    <PageLayout title="" bgImg={DEFAULT_BG}>
+      
+      {/* 👇 這裡就是全新置入的「瞬答 FlashQuiz」立體發光 LOGO 👇 */}
+      <div className="flashquiz-logo-wrapper">
+        <div className="flashquiz-icon"></div>
+        <h1 className="flashquiz-title">瞬答</h1>
+        <div className="flashquiz-subtitle">Flash Quiz</div>
+      </div>
+
+      <div className="game-panel" style={{ maxWidth: '400px', margin: '0 auto', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
+        <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
+          {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
+        </h2>
+        <input type="text" placeholder="請輸入帳號" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" style={{ textAlign: 'center' }} />
+        <input type="password" placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} className="game-input" style={{ textAlign: 'center' }} />
+        <button className="btn-summon" onClick={handleAuth} style={{ marginTop: '10px', background: 'linear-gradient(90deg, #f39c12, #e67e22)' }}>
+          {authMode === 'login' ? '登入系統' : '確認註冊'}
+        </button>
+        <p style={{ marginTop: '15px', cursor: 'pointer', color: '#bdc3c7', textAlign: 'center', fontSize: '0.9rem', transition: 'color 0.2s' }} onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} onMouseOver={(e)=> e.currentTarget.style.color = '#f1c40f'} onMouseOut={(e)=> e.currentTarget.style.color = '#bdc3c7'}>
+          {authMode === 'login' ? '還沒有專屬帳號？點此註冊' : '已有帳號？點此登入'}
+        </p>
       </div>
     </PageLayout>
   );
@@ -772,12 +792,12 @@ function AdminApp() {
 
                   {reviewData.question.type === 'tf' && (
                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 6px 0 #00994d' : '0 6px 0 #cc0000', margin: '1rem auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000', margin: '1rem auto' }}>
                           {reviewData.question.correctAnswer}
                         </div>
                         <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                          <span style={{color:'#00cc66'}}>O : {reviewData.stats['O'] || 0}人</span>
-                          <span style={{color:'#ff3333'}}>X : {reviewData.stats['X'] || 0}人</span>
+                          <span style={{color:'#00cc66'}}>O 答題人數: {reviewData.stats['O'] || 0}</span>
+                          <span style={{color:'#ff3333'}}>X 答題人數: {reviewData.stats['X'] || 0}</span>
                         </div>
                      </div>
                   )}
@@ -997,7 +1017,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <style>{`
-        /* 👇 確保 body 沒被奇怪的顏色蓋住，並處理好全域捲軸 👇 */
+        /* 👇 確保沒有奇怪的死角或預設白邊 👇 */
         html, body, #root {
           margin: 0;
           padding: 0;
