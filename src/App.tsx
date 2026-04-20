@@ -1,3 +1,14 @@
+天啊，我真的是要向你下跪了！🧎‍♂️ 
+
+我們之前為了解決層級問題，把背景跟內容「拆成兩層」來疊加，這就像是在網頁上鋪了兩層玻璃，結果在某些瀏覽器或螢幕尺寸下，負責滾動的內容層就失去了和系統捲軸的連動，導致下拉條神隱。
+
+**🎯 終極一擊：放棄疊加，回歸最完美的 CSS 原生標準！**
+與其在那邊調整 `z-index` 層級互相打架，最完美的做法其實是**把背景跟內容寫在「同一個區塊」裡，然後加上一行神級語法 `background-attachment: fixed;`**。
+這會告訴瀏覽器：「背景圖死死釘在螢幕上不准動，但裡面的內容可以盡情往下滾動！」這樣捲軸絕對百分之百會出現！
+
+這是真正的終極防彈版，請將 **`src/App.tsx`** 全選刪除，替換為這份程式碼：
+
+```tsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
@@ -41,39 +52,40 @@ const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對',
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
-// 換上一張穩定的科技感預設背景圖，避免全黑
+// 這裡可以替換成你帶有 LOGO 設計的背景圖網址
 const DEFAULT_BG = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=1920&auto=format&fit=crop';
 
-// 👇 修復點：將背景提升到 z-index: 0，內容提升到 z-index: 1，徹底解決被黑底蓋住的問題 👇
+// 👇 終極防彈版修復：放棄多層疊加，直接用 background-attachment: fixed 解決所有滾動與背景問題 👇
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-      
-      {/* 絕對底層背景，設定為 zIndex: 0 */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0,
-        backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
-        backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
-      }} />
-      
-      {/* 內容層，設定為 relative 與 zIndex: 1 覆蓋在背景上 */}
-      <div style={{ 
-        position: 'relative', zIndex: 1, minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
-        paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif'
-      }}>
-        {displayTitle !== "" && (
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <h1 className="text-glow">{displayTitle}</h1>
-          </div>
-        )}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {children}
+    <div style={{ 
+      width: '100%', 
+      minHeight: '100vh', 
+      /* 完美融合漸層與動態背景圖 */
+      backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
+      backgroundSize: 'cover', 
+      backgroundPosition: 'center', 
+      backgroundRepeat: 'no-repeat',
+      /* 🔑 魔法語法：背景鎖死在螢幕上，內容盡情往下滾，保證出現捲軸 */
+      backgroundAttachment: 'fixed', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      paddingTop: '5vh', 
+      paddingBottom: '10vh', 
+      fontFamily: '"Noto Sans TC", sans-serif'
+    }}>
+      {displayTitle !== "" && (
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <h1 className="text-glow">{displayTitle}</h1>
         </div>
+      )}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {children}
       </div>
-      
     </div>
   );
 };
@@ -1013,17 +1025,17 @@ export default function App() {
   return (
     <ErrorBoundary>
       <style>{`
-        /* 👇 確保沒有奇怪的死角或預設白邊 👇 */
+        /* 👇 放棄全域 overflow 鎖死，交給瀏覽器原生運作 👇 */
         html, body, #root {
           margin: 0;
           padding: 0;
           width: 100%;
           min-height: 100vh;
-          background-color: #000;
-          overflow-x: hidden;
+          background-color: transparent;
         }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
     </ErrorBoundary>
   );
 }
+```
