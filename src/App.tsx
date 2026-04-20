@@ -41,7 +41,7 @@ const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對',
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
-// 👇 語法錯誤已修復 👇
+// 這裡可以替換成你帶有 LOGO 設計的背景圖網址
 const DEFAULT_BG = '/flashquiz.jpg';
 
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
@@ -217,17 +217,20 @@ function PlayerApp() {
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
         <div className="game-panel" style={{ maxWidth: '400px' }}>
-          <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入競技場</h2>
+          {/* 修正文字 進入競技場 改成 進入遊戲 */}
+          <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
           <input type="text" placeholder="您的暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
-          <button className="btn-summon" onClick={handleJoinArena}>準備戰鬥</button>
+          {/* 修正按鈕文字 準備戰鬥 改成 Ready! */}
+          <button className="btn-summon" onClick={handleJoinArena}>Ready!</button> 
         </div>
       )}
 
       {isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
         <div className="game-panel" style={{ maxWidth: '400px' }}>
           <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
-          <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待大師開啟試煉...</p>
+          {/* 修正文字 等待大師開啟試煉... 改成 等待遊戲開始... */}
+          <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待遊戲開始...</p> 
         </div>
       )}
 
@@ -428,9 +431,10 @@ function PlayerApp() {
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
+            {/* 致命錯誤修復：使用可選鏈 ?. 安全地訪問屬性 */}
             {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
-            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
-            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
+            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
+            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
           </div>
           <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 結束並返回大廳</button>
         </div>
@@ -726,7 +730,7 @@ function AdminApp() {
                   )}
                   {currentQuestion.type === 'match' && (
                     <div style={{ color: '#bdc3c7', fontSize: '0.9rem', opacity: 0.8, pointerEvents: 'none' }}>
-                      <p style={{ marginBottom: '10px' }}>[圖片配驚題選項]</p>
+                      <p style={{ marginBottom: '10px' }}>[圖片配對題選項]</p>
                       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
                          {(currentQuestion.topItems || []).map((item: any, idx: number) => (
                            <div key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', color: '#fff', textAlign: 'center' }}>
@@ -824,9 +828,10 @@ function AdminApp() {
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content">
                     <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
+                    {/* 致命錯誤修復：使用可選鏈 ?. 安全地訪問屬性 */}
                     {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
-                    {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
-                    {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
+                    {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
+                    {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
                   </div>
                   <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 結束並返回大廳</button>
                 </div>
@@ -889,10 +894,10 @@ function AdminApp() {
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <select value={qType} onChange={handleTypeChange} className="game-input" style={{ flex: 1 }}>
                 <option value="choice">單選題</option>
-                <option value="tf">生死是非題 (O/X)</option>
-                <option value="multi">地獄多選題</option>
-                <option value="guess">圖片漸進猜謎題</option>
-                <option value="order">排列順序題 (由上到下)</option>
+                <option value="tf">是非題 (O/X)</option>
+                <option value="multi">多選題</option>
+                <option value="guess">猜圖題</option>
+                <option value="order">排序題 (由上到下)</option>
                 <option value="match">圖片配對題</option>
               </select>
               <input type="number" placeholder="秒數" value={newTime} onChange={(e) => setNewTime(Number(e.target.value))} className="game-input" style={{ width: '80px' }} />
@@ -957,7 +962,8 @@ function AdminApp() {
                 {matchPairs.map((pair, index) => (
                   <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '5px' }}>
                     <span style={{ color: '#fff', width: '20px' }}>{index+1}.</span>
-                    <input type="text" placeholder="魔靈名字" value={pair.tName} onChange={e => { const newPairs = [...matchPairs]; newPairs[index].tName = e.target.value; setMatchPairs(newPairs); }} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 1 }} />
+                    {/* 修正佔位符魔靈名字改為名字 */}
+                    <input type="text" placeholder="名字" value={pair.tName} onChange={e => { const newPairs = [...matchPairs]; newPairs[index].tName = e.target.value; setMatchPairs(newPairs); }} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 1 }} /> 
                     <label style={{ flex: 1, height: '40px', background: 'rgba(0,0,0,0.3)', border: '1px dashed #3498db', borderRadius: '5px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
                       {pair.tImg ? <img src={pair.tImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.8rem', color: '#3498db'}}>+ 選擇圖片</span>}
                       <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={(e) => handleImageUpload(index, 'tImg', e)} />
