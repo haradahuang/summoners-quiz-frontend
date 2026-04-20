@@ -40,18 +40,21 @@ const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T
 const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜圖', order: '排序' };
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
-// 👇 預設的標題與背景圖 👇
 const DEFAULT_TITLE = '傳奇金頭腦挑戰賽';
 const DEFAULT_BG = 'https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg';
 
-// 👇 全新動態排版核心 (PageLayout) 👇
+// 👇 修復點 1: 加入 backgroundRepeat: 'no-repeat' 防止圖片過小時重複 👇
 const PageLayout = ({ title, bgImg, children }: { title: string, bgImg?: string, children: React.ReactNode }) => (
-  <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("${bgImg || DEFAULT_BG}")`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+  <div style={{ 
+    minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
+    paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', 
+    background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("${bgImg || DEFAULT_BG}")`, 
+    backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' 
+  }}>
     <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}><h1 className="text-glow">{title || DEFAULT_TITLE}</h1></div>
     {children}
   </div>
 );
-
 
 // ==========================================
 // 🏆 排行榜組件
@@ -97,7 +100,6 @@ function PlayerApp() {
   const [isJoined, setIsJoined] = useState(false);
   const [players, setPlayers] = useState<any[]>([]);
   
-  // 👇 儲存當前房間的標題與背景 👇
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(DEFAULT_BG);
 
@@ -127,10 +129,9 @@ function PlayerApp() {
   }, [answerResult]);
 
   useEffect(() => {
-    // 接收房間資訊更新背景與標題
     socket.on('room_info', (info) => {
-      if (info.title) setRoomTitle(info.title);
-      if (info.backgroundImg) setRoomBg(info.backgroundImg);
+      setRoomTitle(info.title || DEFAULT_TITLE);
+      setRoomBg(info.backgroundImg || DEFAULT_BG);
     });
 
     socket.on('update_players', (list) => setPlayers(list || []));
@@ -319,14 +320,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
+         <div className="game-panel">
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
+        <div className="game-panel">
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {reviewData.question.type === 'guess' && (
@@ -423,7 +424,6 @@ function AdminApp() {
   const [quizPacks, setQuizPacks] = useState<any[]>([]);
   const [editingPack, setEditingPack] = useState<any>(null); 
   
-  // 主持人全域資訊
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
@@ -455,12 +455,11 @@ function AdminApp() {
   }, [hostingPin, podiumData]);
 
   useEffect(() => {
-    // 接收開房成功後的標題與背景
     socket.on('room_created', (data) => { 
       setHostingPin(data.pin); 
       setHostingUrl(window.location.origin + data.joinUrl); 
-      if (data.title) setRoomTitle(data.title);
-      if (data.backgroundImg) setRoomBg(data.backgroundImg);
+      setRoomTitle(data.title || DEFAULT_TITLE);
+      setRoomBg(data.backgroundImg || DEFAULT_BG);
     });
 
     socket.on('update_players', (list) => setPlayers(list || []));
@@ -608,15 +607,17 @@ function AdminApp() {
 
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
 
+  // 👇 修復點 2: 回大廳時洗掉背景跟標題設定 👇
   const handleReturnToDashboard = () => {
     sfx.victory.pause(); sfx.victory.currentTime = 0;
     sfx.cheer.pause(); sfx.cheer.currentTime = 0;
     sfx.bgm.pause(); sfx.bgm.currentTime = 0;
     setHostingPin(null); setHostingUrl(null); setPlayers([]);
     setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
+    setRoomTitle(DEFAULT_TITLE);
+    setRoomBg(DEFAULT_BG);
   };
 
-  // 動態判斷 Admin 畫面的標題與背景
   let displayTitle = '創作者儀表板';
   let displayBg = DEFAULT_BG;
   if (hostingPin) { displayTitle = roomTitle; displayBg = roomBg; }
@@ -637,7 +638,7 @@ function AdminApp() {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
+        <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
           {!isGameStarted ? (
             <>
               <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -792,7 +793,7 @@ function AdminApp() {
                 <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content">
-                    <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem' }}>🏆 傳奇誕生 🏆</h2>
+                    <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
                     {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
                     {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
                     {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
@@ -810,7 +811,7 @@ function AdminApp() {
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
+        <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
             <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -818,9 +819,9 @@ function AdminApp() {
 
           <input type="text" value={editingPack.title} onChange={(e) => setEditingPack({...editingPack, title: e.target.value})} placeholder="題庫包名稱" className="game-input" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f1c40f' }} />
 
-          {/* 👇 創作者後台上傳自訂背景圖 👇 */}
           <div style={{ marginBottom: '15px' }}>
-            <p style={{ color: '#3498db', fontSize: '0.85rem', marginBottom: '5px' }}>* 自訂遊戲背景圖 (建議 16:9，支援 JPG/PNG，限 1MB 內)</p>
+            {/* 👇 修復點 1: 新增建議尺寸的文字提示 👇 */}
+            <p style={{ color: '#3498db', fontSize: '0.85rem', marginBottom: '5px' }}>* 自訂遊戲背景圖 (建議尺寸 1920x1080 16:9，支援 JPG/PNG，限 1MB 內)</p>
             <label style={{ width: '100%', height: '120px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #3498db', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
               {editingPack.backgroundImg ? <img src={editingPack.backgroundImg} alt="bg" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} /> : <span style={{fontSize: '1rem', color: '#3498db'}}>+ 選擇背景圖片 (未上傳則使用預設)</span>}
               <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={(e) => {
@@ -981,8 +982,17 @@ function AdminApp() {
 export default function App() {
   return (
     <ErrorBoundary>
+      {/* 👇 修復點 3: 徹底解放捲軸限制，支援所有裝置滑動 👇 */}
       <style>{`
-        html, body, #root { margin: 0; padding: 0; height: 100%; overflow-x: hidden; }
+        html, body, #root {
+          margin: 0;
+          padding: 0;
+          min-height: 100vh;
+          height: auto;
+          overflow-x: hidden;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
     </ErrorBoundary>
