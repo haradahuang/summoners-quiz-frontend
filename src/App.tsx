@@ -43,33 +43,26 @@ const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
 const DEFAULT_BG = '/flashquiz.jpg';
 
-// 👇 畫面排版：加入背景 Loading 判斷機制 👇
+// 👇 畫面排版：加入雙層背景處理機制 👇
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
+  // 漸層層：蓋在圖片上方，讓文字更好閱讀，同時當作 Loading 的底色
+  const gradient = finalBg 
+    ? `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%)`
+    : `radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)`;
+
   return (
-    <div style={{ 
-      width: '100%', 
-      minHeight: '100vh', 
-      /* 魔法：如果還在 Loading，顯示極簡深黑漸層；若載入完成，直接顯示底圖，絕對不閃爍！ */
-      backgroundImage: finalBg 
-        ? `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`
-        : `radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)`,
-      backgroundSize: 'cover', 
-      backgroundPosition: 'center', 
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'fixed', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      paddingTop: '5vh', 
-      paddingBottom: '10vh', 
-      fontFamily: '"Noto Sans TC", sans-serif',
-      transition: 'background-image 0.5s ease-in-out' /* 背景切換時增加柔和淡入特效 */
-    }}>
+    <div 
+      className="page-layout-wrapper"
+      style={{ 
+        /* 魔法：設定多重背景，漸層層疊加在圖片層上方 */
+        backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient
+      }}
+    >
       {displayTitle !== "" && (
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '20px' }}>
           <h1 className="text-glow">{displayTitle}</h1>
         </div>
       )}
@@ -126,7 +119,6 @@ function PlayerApp() {
   
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   
-  // 👇 預設如果網址有 PIN 碼，就先進入 LOADING 狀態，不顯示預設圖 👇
   const [roomBg, setRoomBg] = useState(searchParams.get('pin') ? 'LOADING' : DEFAULT_BG);
 
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -157,10 +149,7 @@ function PlayerApp() {
   useEffect(() => {
     if (pin && pin.trim().length > 0) {
       socket.emit('check_room', pin);
-      // 安全機制：如果網路卡住超過 3 秒，強制顯示預設底圖，避免永遠黑屏
-      const fallbackTimer = setTimeout(() => {
-        setRoomBg(prev => prev === 'LOADING' ? DEFAULT_BG : prev);
-      }, 3000);
+      const fallbackTimer = setTimeout(() => { setRoomBg(prev => prev === 'LOADING' ? DEFAULT_BG : prev); }, 3000);
       return () => clearTimeout(fallbackTimer);
     } else {
       setRoomTitle(DEFAULT_TITLE);
@@ -173,12 +162,9 @@ function PlayerApp() {
       setRoomTitle(info.title || DEFAULT_TITLE);
       const targetBg = info.backgroundImg || DEFAULT_BG;
       
-      // 👇 圖片預載入黑科技：背景先偷偷把圖片下載好，100% 完成後才瞬間切換上去 👇
       if (targetBg !== DEFAULT_BG) {
-        const img = new Image();
-        img.src = targetBg;
-        img.onload = () => setRoomBg(targetBg);     // 成功載入才顯示
-        img.onerror = () => setRoomBg(DEFAULT_BG);  // 失敗就用預設的
+        const img = new Image(); img.src = targetBg;
+        img.onload = () => setRoomBg(targetBg); img.onerror = () => setRoomBg(DEFAULT_BG);
       } else {
         setRoomBg(DEFAULT_BG);
       }
@@ -243,7 +229,8 @@ function PlayerApp() {
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
-        <div className="game-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
+        // 👇 加上 login-panel 標籤，讓 CSS 可以在手機版時自動調整間距 👇
+        <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
           <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
           <input type="text" placeholder="您的暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
@@ -252,14 +239,14 @@ function PlayerApp() {
       )}
 
       {isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel" style={{ maxWidth: '400px' }}>
+        <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
           <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
           <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待遊戲開始...</p> 
         </div>
       )}
 
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel question-transition">
+        <div className="game-panel question-transition login-panel" style={{ margin: '15vh auto 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
@@ -377,14 +364,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
+         <div className="game-panel login-panel" style={{ paddingBottom: '2rem', margin: '15vh auto 0' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
+        <div className="game-panel login-panel" style={{ paddingBottom: '2rem', margin: '15vh auto 0' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {reviewData.question.type === 'guess' && (
@@ -451,7 +438,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+        <div className="game-panel login-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative', margin: '15vh auto 0' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -675,7 +662,8 @@ function AdminApp() {
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
-      <div className="game-panel" style={{ maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
+      {/* 👇 加上 login-panel 標籤 👇 */}
+      <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
         </h2>
@@ -695,7 +683,7 @@ function AdminApp() {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
+        <div className="game-panel login-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
           {!isGameStarted ? (
             <>
               <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -868,7 +856,7 @@ function AdminApp() {
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
+        <div className="game-panel login-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
             <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -1012,7 +1000,7 @@ function AdminApp() {
 
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
-      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="game-panel login-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
           <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板</h2>
           <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
@@ -1046,12 +1034,47 @@ export default function App() {
           width: 100% !important;
           height: auto !important;
           min-height: 100vh !important;
-          overflow-y: auto !important; /* 強制開啟垂直捲軸 */
+          overflow-y: auto !important;
           overflow-x: hidden !important;
           background-color: #050505 !important;
         }
+        
+        .page-layout-wrapper {
+          width: 100%;
+          min-height: 100vh;
+          background-size: cover, cover;
+          background-position: center, center;
+          background-repeat: no-repeat, no-repeat;
+          background-attachment: fixed, fixed;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding-top: 5vh;
+          padding-bottom: 10vh;
+          font-family: "Noto Sans TC", sans-serif;
+          transition: background-image 0.5s ease-in-out;
+          background-color: #050505;
+        }
 
-        /* 強制確保下拉選單 (select) 正常顯示，不怕被其他 CSS 影響 */
+        /* 📱 手機版神級魔法：處理橫式照片與版面推擠 📱 */
+        @media (max-width: 768px) {
+          .page-layout-wrapper {
+            /* 第一層(漸層)蓋滿，第二層(你的照片)完整縮放對齊上方，保證不被裁切 */
+            background-size: cover, contain !important;
+            background-position: center, top center !important;
+          }
+          
+          /* 將標題在手機版往下推，讓出畫面上方約 1/4 的空間給婚紗照 */
+          .title-wrapper {
+            margin-top: 25vh !important;
+          }
+          
+          /* 登入框與其他面板，因為跟在標題下面，不需要再隔那麼開了 */
+          .login-panel {
+            margin-top: 2vh !important;
+          }
+        }
+
         select.game-input {
           appearance: auto !important;
           -webkit-appearance: auto !important;
