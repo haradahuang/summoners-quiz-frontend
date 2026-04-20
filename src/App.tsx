@@ -43,28 +43,35 @@ const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6
 const DEFAULT_TITLE = '傳奇金頭腦挑戰賽';
 const DEFAULT_BG = 'https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg';
 
-// 👇 修復點：採用「絕對定位底層背景」＋「上層滾動內容」分離架構，100% 解決切邊與死角 👇
-const PageLayout = ({ title, bgImg, children }: { title: string, bgImg?: string, children: React.ReactNode }) => (
-  <>
-    {/* 獨立的最底層背景，永遠 100vw x 100vh 完美填滿 */}
-    <div style={{
-      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1,
-      backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url("${bgImg || DEFAULT_BG}")`,
-      backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
-    }} />
-    
-    {/* 上層捲動內容區塊 */}
+// 👇 修復點：最穩定的共用背景排版框架 👇
+const PageLayout = ({ title, bgImg, children }: { title: string, bgImg?: string, children: React.ReactNode }) => {
+  const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
+  return (
     <div style={{ 
-      minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
-      paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif'
+      minHeight: '100vh', 
+      width: '100%', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      paddingTop: '5vh', 
+      paddingBottom: '10vh', 
+      fontFamily: '"Noto Sans TC", sans-serif',
+      backgroundColor: '#000', // 確保沒圖時是純黑底
+      backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed' // 鎖定背景不隨捲軸滾動
     }}>
       <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}>
         <h1 className="text-glow">{title || DEFAULT_TITLE}</h1>
       </div>
-      {children}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
+        {children}
+      </div>
     </div>
-  </>
-);
+  );
+};
 
 // ==========================================
 // 🏆 排行榜組件
@@ -989,16 +996,15 @@ function AdminApp() {
 export default function App() {
   return (
     <ErrorBoundary>
-      {/* 👇 修正點 3: 放棄所有內部限制，強迫最外層可以順利延伸捲動 👇 */}
       <style>{`
+        /* 👇 確保 body 沒被奇怪的顏色蓋住，並處理好全域捲軸 👇 */
         html, body, #root {
           margin: 0;
           padding: 0;
+          width: 100%;
           min-height: 100vh;
-          height: auto;
+          background-color: #000;
           overflow-x: hidden;
-          overflow-y: auto !important;
-          -webkit-overflow-scrolling: touch;
         }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
