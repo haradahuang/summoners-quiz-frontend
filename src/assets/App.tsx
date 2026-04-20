@@ -99,7 +99,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面
+// 🎮 玩家端介面 (Player View)
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -233,7 +233,6 @@ function PlayerApp() {
             </div>
           </div>
 
-          {/* 👇 玩家端：大字體題型標籤 + 題目文字 👇 */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1rem', flexWrap: 'wrap' }}>
             <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
               {qTypeLabels[currentQuestion.type] || '未知'}
@@ -673,7 +672,7 @@ function AdminApp() {
 
                 <h3 style={{ color: '#34db98', marginBottom: '10px' }}>⏳ 題目作答中... (已答題: {players.filter(p => p.hasAnswered).length} / {players.length} 人)</h3>
                 
-                {/* 👇 主持人端：大字體題型標籤 + 題目文字 👇 */}
+                {/* 👇 修正點：為主持端同步加上題型標籤 👇 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                   <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
                     {qTypeLabels[currentQuestion.type] || '未知'}
