@@ -44,7 +44,6 @@ const DEFAULT_TITLE = '瞬答 FlashQuiz';
 // 這裡可以替換成你帶有 LOGO 設計的背景圖網址
 const DEFAULT_BG = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=1920&auto=format&fit=crop';
 
-// 👇 終極防彈版修復：放棄多層疊加，直接用 background-attachment: fixed 解決所有滾動與背景問題 👇
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
@@ -58,7 +57,6 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
       backgroundSize: 'cover', 
       backgroundPosition: 'center', 
       backgroundRepeat: 'no-repeat',
-      /* 🔑 魔法語法：背景鎖死在螢幕上，內容盡情往下滾，保證出現捲軸 */
       backgroundAttachment: 'fixed', 
       display: 'flex', 
       flexDirection: 'column', 
@@ -426,7 +424,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+        <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -1014,13 +1012,31 @@ export default function App() {
   return (
     <ErrorBoundary>
       <style>{`
-        /* 👇 放棄全域 overflow 鎖死，交給瀏覽器原生運作 👇 */
+        /* 👇 核彈級強制覆蓋：絕對不允許捲軸或下拉選單被隱藏 👇 */
         html, body, #root {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          min-height: 100vh;
-          background-color: transparent;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          height: auto !important;
+          min-height: 100vh !important;
+          overflow-y: auto !important; /* 強制開啟垂直捲軸 */
+          overflow-x: hidden !important;
+          background-color: #050505 !important;
+        }
+
+        /* 強制確保下拉選單 (select) 正常顯示，不怕被其他 CSS 影響 */
+        select.game-input {
+          appearance: auto !important;
+          -webkit-appearance: auto !important;
+          -moz-appearance: auto !important;
+          background-color: rgba(0, 0, 0, 0.8) !important;
+          color: #FFD700 !important;
+          cursor: pointer;
+        }
+        
+        select.game-input option {
+          background-color: #111 !important;
+          color: #FFF !important;
         }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
