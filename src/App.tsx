@@ -47,6 +47,10 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
 
+// 👇 題型標籤全域設定 👇
+const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜圖', order: '排序' };
+const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
+
 // ==========================================
 // 🏆 動態洗牌排行榜引擎
 // ==========================================
@@ -115,7 +119,7 @@ function PlayerApp() {
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
   const [multiSelected, setMultiSelected] = useState<string[]>([]);
-  const [orderState, setOrderState] = useState<any[]>([]); // 排序題專用狀態
+  const [orderState, setOrderState] = useState<any[]>([]); 
 
   useEffect(() => {
     if (isJoined && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
@@ -133,11 +137,7 @@ function PlayerApp() {
     socket.on('update_players', (list) => setPlayers(list || []));
     socket.on('receive_question', (q) => { 
       if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
-      
-      // 排序題：接收到選項後立刻打亂順序給玩家
-      if (q.type === 'order' && q.options) {
-        setOrderState([...q.options].sort(() => Math.random() - 0.5));
-      }
+      if (q.type === 'order' && q.options) setOrderState([...q.options].sort(() => Math.random() - 0.5));
 
       setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
       setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
@@ -178,7 +178,6 @@ function PlayerApp() {
   };
   const handleMultiSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: multiSelected }); } };
 
-  // 排序題上下移動邏輯
   const moveOrderUp = (index: number) => {
     if (index === 0 || hasAnswered) return;
     const newArr = [...orderState];
@@ -227,15 +226,23 @@ function PlayerApp() {
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
           
-          {/* 👇 全新加粗進度條附帶文字 👇 */}
-          <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,215,0,0.5)' }}>
+          <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem', border: '1px solid rgba(255,215,0,0.5)' }}>
             <div style={{ height: '100%', background: 'linear-gradient(90deg, #f39c12, #f1c40f)', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s' }} />
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: '900', fontSize: '0.9rem', textShadow: '1px 1px 2px #000' }}>
               題目進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}
             </div>
           </div>
 
-          <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1rem' }}>{currentQuestion?.text}</h2>
+          {/* 👇 玩家端：大字體題型標籤 + 題目文字 👇 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
+              {qTypeLabels[currentQuestion.type] || '未知'}
+            </span>
+            <h2 style={{ color: '#FFF', fontSize: '1.4rem', margin: 0, textAlign: 'left' }}>
+              {currentQuestion?.text}
+            </h2>
+          </div>
+
           <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
@@ -290,7 +297,6 @@ function PlayerApp() {
             </div>
           )}
 
-          {/* 👇 排序題玩家作答介面 👇 */}
           {currentQuestion?.type === 'order' && !hasAnswered && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '5px' }}>💡 點擊右側按鈕上下移動，由上而下排出正確順序！</p>
@@ -379,7 +385,6 @@ function PlayerApp() {
              </div>
           )}
 
-          {/* 👇 排序題正確答案展示 👇 */}
           {reviewData.question.type === 'order' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold' }}>🎯 正確排序</p>
@@ -548,7 +553,7 @@ function AdminApp() {
     const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order';
     setQType(type);
     if (type === 'tf') setNewTime(5); 
-    else if (type === 'match' || type === 'order') setNewTime(30); // 排序題需要較多思考時間
+    else if (type === 'match' || type === 'order') setNewTime(30);
     else if (type === 'guess') setNewTime(12);
     else setNewTime(10);
   };
@@ -565,7 +570,6 @@ function AdminApp() {
       if (q.type === 'choice' || q.type === 'guess') setNewAns(q.correctAnswer || 'A');
       if (q.type === 'multi') setNewMultiAns(q.correctAnswers || []);
       if (q.type === 'guess') setNewGuessImg(q.guessImg || '');
-      // order 不需要設定 newAns，因為我們直接規定 A->B->C->D 就是正解
     } else if (q.type === 'tf') {
       setNewTfAns(q.correctAnswer || 'O');
     } else if (q.type === 'match') {
@@ -588,7 +592,7 @@ function AdminApp() {
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
     if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order') {
-      if (!newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) return alert('此題型強烈建議填寫 A/B/C/D 四個完整選項，以保證遊戲體驗！');
+      if (!newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) return alert('此題型強烈建議填寫 A/B/C/D 四個完整選項！');
       if (qType === 'guess' && !newGuessImg) return alert('請上傳要讓玩家猜的圖片！');
 
       const options = [];
@@ -606,7 +610,6 @@ function AdminApp() {
         if (newMultiAns.length === 0) return alert('多選題請至少勾選一個正確解答！');
         newQ.correctAnswers = newMultiAns;
       } else if (qType === 'order') {
-        // 排序題的秘密：直接將 A,B,C,D 視為正確順序字串存入
         newQ.correctAnswer = options.map(o => o.id).join(',');
       }
     } else if (qType === 'tf') {
@@ -661,7 +664,6 @@ function AdminApp() {
             {currentQuestion && !leaderboard && !reviewData && !podiumData && (
               <div className="question-transition">
                 
-                {/* 👇 主持人端的新版加粗進度條 👇 */}
                 <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,215,0,0.5)' }}>
                   <div style={{ height: '100%', background: 'linear-gradient(90deg, #f39c12, #f1c40f)', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s' }} />
                   <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: '900', fontSize: '0.9rem', textShadow: '1px 1px 2px #000' }}>
@@ -670,7 +672,16 @@ function AdminApp() {
                 </div>
 
                 <h3 style={{ color: '#34db98', marginBottom: '10px' }}>⏳ 題目作答中... (已答題: {players.filter(p => p.hasAnswered).length} / {players.length} 人)</h3>
-                <h2 style={{ color: '#FFF', fontSize: '1.3rem', marginBottom: '1.5rem' }}>{currentQuestion.text}</h2>
+                
+                {/* 👇 主持人端：大字體題型標籤 + 題目文字 👇 */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
+                    {qTypeLabels[currentQuestion.type] || '未知'}
+                  </span>
+                  <h2 style={{ color: '#FFF', fontSize: '1.4rem', margin: 0, textAlign: 'left' }}>
+                    {currentQuestion.text}
+                  </h2>
+                </div>
                 
                 {currentQuestion.type === 'guess' && (
                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
@@ -687,7 +698,6 @@ function AdminApp() {
                    </div>
                 )}
 
-                {/* 排序題的主持人端，也是顯示選項而已 */}
                 {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order') && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.8 }}>
                     {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', borderLeft: `5px solid ${opt.color}`, color: '#fff' }}>{opt.text}</div>))}
@@ -748,7 +758,6 @@ function AdminApp() {
                    </div>
                 )}
 
-                {/* 👇 主持人端的排序題正確答案展示 👇 */}
                 {reviewData.question.type === 'order' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold' }}>🎯 正確排序</p>
@@ -825,11 +834,12 @@ function AdminApp() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
           {editingPack.questions.map((q: any, idx: number) => {
-            const typeLabels: any = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜謎', order: '排序' };
-            const typeColors: any = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
             return (
             <div key={q.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div><span style={{ background: typeColors[q.type], padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', marginRight: '10px' }}>{typeLabels[q.type]}</span><strong>Q{idx + 1}. {q.text}</strong></div>
+              <div>
+                <span style={{ background: qTypeColors[q.type], padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', marginRight: '10px', color: '#fff' }}>{qTypeLabels[q.type]}</span>
+                <strong>Q{idx + 1}. {q.text}</strong>
+              </div>
               <div style={{ display: 'flex', gap: '5px' }}>
                 <button onClick={() => handleEditQuestion(q)} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>修改</button>
                 <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>刪除</button>
@@ -868,7 +878,6 @@ function AdminApp() {
             </div>
           )}
 
-          {/* 👇 排序題也共用這個 4 個文字選項的輸入框 👇 */}
           {(qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order') && (
             <>
               {qType === 'order' && <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>* 請依序(由上至下)在選項 A 到 D 填入正確順序，發送時系統會自動打亂讓玩家排列！</p>}
