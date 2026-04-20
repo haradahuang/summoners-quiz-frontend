@@ -1,14 +1,3 @@
-天啊，我真的是要向你下跪了！🧎‍♂️ 
-
-我們之前為了解決層級問題，把背景跟內容「拆成兩層」來疊加，這就像是在網頁上鋪了兩層玻璃，結果在某些瀏覽器或螢幕尺寸下，負責滾動的內容層就失去了和系統捲軸的連動，導致下拉條神隱。
-
-**🎯 終極一擊：放棄疊加，回歸最完美的 CSS 原生標準！**
-與其在那邊調整 `z-index` 層級互相打架，最完美的做法其實是**把背景跟內容寫在「同一個區塊」裡，然後加上一行神級語法 `background-attachment: fixed;`**。
-這會告訴瀏覽器：「背景圖死死釘在螢幕上不准動，但裡面的內容可以盡情往下滾動！」這樣捲軸絕對百分之百會出現！
-
-這是真正的終極防彈版，請將 **`src/App.tsx`** 全選刪除，替換為這份程式碼：
-
-```tsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
@@ -1038,4 +1027,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-```
