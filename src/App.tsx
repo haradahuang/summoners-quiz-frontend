@@ -41,26 +41,27 @@ const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對',
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
-// 這裡可以替換成你帶有 LOGO 設計的背景圖網址
-const DEFAULT_BG = 'https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg';
+// 換上一張穩定的科技感預設背景圖，避免全黑
+const DEFAULT_BG = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=1920&auto=format&fit=crop';
 
-// 👇 修復點：背景與內容完全脫鉤，拔除任何可能鎖死捲軸的 overflow 👇
+// 👇 修復點：將背景提升到 z-index: 0，內容提升到 z-index: 1，徹底解決被黑底蓋住的問題 👇
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
   return (
-    <>
-      {/* 絕對底層背景，固定不動，不參與捲動計算 */}
+    <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
+      
+      {/* 絕對底層背景，設定為 zIndex: 0 */}
       <div style={{
-        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1,
+        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0,
         backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
         backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
       }} />
       
-      {/* 內容層，交給瀏覽器原生捲動 */}
+      {/* 內容層，設定為 relative 與 zIndex: 1 覆蓋在背景上 */}
       <div style={{ 
-        minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
+        position: 'relative', zIndex: 1, minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
         paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif'
       }}>
         {displayTitle !== "" && (
@@ -68,11 +69,12 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
             <h1 className="text-glow">{displayTitle}</h1>
           </div>
         )}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {children}
         </div>
       </div>
-    </>
+      
+    </div>
   );
 };
 
@@ -645,7 +647,6 @@ function AdminApp() {
   if (hostingPin) { displayTitle = roomTitle; displayBg = roomBg; }
   else if (editingPack) { displayTitle = editingPack.title || '編輯題庫包'; displayBg = editingPack.backgroundImg || DEFAULT_BG; }
 
-  // 👇 修復點：移除了 CSS 特效的標題，退回乾淨的登入框，將標題權限全部交給背景圖 👇
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
       <div className="game-panel" style={{ maxWidth: '400px', margin: '0 auto', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
@@ -1012,13 +1013,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <style>{`
-        /* 👇 放棄全域 overflow 鎖死，交給瀏覽器原生運作 👇 */
+        /* 👇 確保沒有奇怪的死角或預設白邊 👇 */
         html, body, #root {
           margin: 0;
           padding: 0;
           width: 100%;
           min-height: 100vh;
           background-color: #000;
+          overflow-x: hidden;
         }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
