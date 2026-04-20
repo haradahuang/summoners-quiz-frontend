@@ -41,26 +41,26 @@ const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對',
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
+// 這裡可以替換成你帶有 LOGO 設計的背景圖網址
 const DEFAULT_BG = 'https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg';
 
-// 👇 修復點 1：調整 z-index 層級，確保背景圖絕對不會被黑色蓋住 👇
+// 👇 修復點：背景與內容完全脫鉤，拔除任何可能鎖死捲軸的 overflow 👇
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
-  // 如果明確傳入 title=""，就不要顯示預設標題 (讓空間留給大 LOGO)
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-      {/* 絕對底層背景，設定為 0 */}
+    <>
+      {/* 絕對底層背景，固定不動，不參與捲動計算 */}
       <div style={{
-        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 0,
-        backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
+        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1,
+        backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
         backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
       }} />
       
-      {/* 上方內容區塊，設定為 1，疊在背景上方 */}
+      {/* 內容層，交給瀏覽器原生捲動 */}
       <div style={{ 
-        position: 'relative', zIndex: 1, minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
+        minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
         paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif'
       }}>
         {displayTitle !== "" && (
@@ -68,11 +68,11 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
             <h1 className="text-glow">{displayTitle}</h1>
           </div>
         )}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
           {children}
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -423,7 +423,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -645,17 +645,9 @@ function AdminApp() {
   if (hostingPin) { displayTitle = roomTitle; displayBg = roomBg; }
   else if (editingPack) { displayTitle = editingPack.title || '編輯題庫包'; displayBg = editingPack.backgroundImg || DEFAULT_BG; }
 
-  // 👇 套用全新瞬答 FlashQuiz 發光 LOGO 與登入排版 👇
+  // 👇 修復點：移除了 CSS 特效的標題，退回乾淨的登入框，將標題權限全部交給背景圖 👇
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
-      
-      {/* 👇 這裡就是全新置入的「瞬答 FlashQuiz」立體發光 LOGO 👇 */}
-      <div className="flashquiz-logo-wrapper">
-        <div className="flashquiz-icon"></div>
-        <h1 className="flashquiz-title">瞬答</h1>
-        <div className="flashquiz-subtitle">Flash Quiz</div>
-      </div>
-
       <div className="game-panel" style={{ maxWidth: '400px', margin: '0 auto', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
@@ -676,7 +668,7 @@ function AdminApp() {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
           {!isGameStarted ? (
             <>
               <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -849,7 +841,7 @@ function AdminApp() {
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+        <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
             <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -1019,48 +1011,14 @@ function AdminApp() {
 export default function App() {
   return (
     <ErrorBoundary>
-      {/* 👇 完美修復版：將所有 Logo 發光特效與背景防呆機制整合在這裡 👇 */}
       <style>{`
+        /* 👇 放棄全域 overflow 鎖死，交給瀏覽器原生運作 👇 */
         html, body, #root {
-          margin: 0; padding: 0; width: 100%; min-height: 100vh;
-          background-color: #0a0a0a; overflow-x: hidden;
-        }
-
-        .flashquiz-logo-wrapper {
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
-          margin-bottom: 2rem; animation: fadeInDown 0.8s ease-out;
-        }
-
-        .flashquiz-icon {
-          width: 90px; height: 90px; background-color: rgba(0, 0, 0, 0.5);
-          border: 4px solid #ffd700; border-radius: 50%; position: relative; overflow: hidden;
-          margin-bottom: 15px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.6), inset 0 0 15px rgba(255, 215, 0, 0.4);
-          display: flex; justify-content: center; align-items: center;
-        }
-
-        .flashquiz-icon::after {
-          content: '⚡'; font-size: 4rem; color: #fff;
-          text-shadow: 0 0 15px #ffd700, 0 0 30px #f39c12; animation: pulseGlow 2s infinite alternate;
-        }
-
-        .flashquiz-title {
-          font-size: 3.5rem; font-weight: 900; color: #fff; margin: 0; text-align: center;
-          letter-spacing: 4px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 4px 4px rgba(0,0,0,0.5);
-        }
-
-        .flashquiz-subtitle {
-          font-size: 1.2rem; font-weight: 800; color: #f1c40f; margin-top: 2px; text-align: center;
-          letter-spacing: 0.3rem; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-        }
-
-        @keyframes pulseGlow {
-          0% { transform: scale(0.95); box-shadow: 0 0 10px rgba(255,215,0,0.5); }
-          100% { transform: scale(1.05); box-shadow: 0 0 30px rgba(255,215,0,0.9), inset 0 0 20px rgba(255,215,0,0.6); }
-        }
-
-        @keyframes fadeInDown {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          min-height: 100vh;
+          background-color: #000;
         }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
