@@ -1,5 +1,13 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body, html, #root { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+/* 🚨 終極修復點：移除 height: 100% 與 overflow: hidden，解放捲軸 🚨 */
+body, html, #root { 
+  width: 100%; 
+  min-height: 100vh; /* 改用 min-height 允許無限往下長 */
+  overflow-x: hidden; 
+  overflow-y: auto; /* 強制開啟垂直捲軸 */
+  background: #000; 
+}
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
