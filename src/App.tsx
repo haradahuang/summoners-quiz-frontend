@@ -209,12 +209,11 @@ function PlayerApp() {
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
   const handleBottomClick = (bottomId: string) => { setUserMatches(prev => { const newMatches = { ...prev }; let existingTopKey = null; for (const key in newMatches) { if (newMatches[key] === bottomId) existingTopKey = key; } if (activeTopId) { if (existingTopKey) delete newMatches[existingTopKey]; newMatches[activeTopId] = bottomId; setActiveTopId(null); } else { if (existingTopKey) delete newMatches[existingTopKey]; } return newMatches; }); };
 
-  // 👇 修正點：替玩家端加上專屬的結束重置功能，避免 ReferenceError 導致致命錯誤 👇
   const handleReturnToDashboard = () => {
     sfx.victory.pause(); sfx.victory.currentTime = 0;
     sfx.cheer.pause(); sfx.cheer.currentTime = 0;
     sfx.bgm.pause(); sfx.bgm.currentTime = 0;
-    window.location.reload(); // 讓玩家直接重新整理回到大廳最乾淨
+    window.location.reload(); 
   };
 
   const sortedPlayers = [...(players || [])].sort((a, b) => b.score - a.score);
@@ -224,7 +223,8 @@ function PlayerApp() {
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
-        <div className="game-panel" style={{ maxWidth: '400px' }}>
+        // 👇 玩家登入框下推 👇
+        <div className="game-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
           <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
           <input type="text" placeholder="您的暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
@@ -655,7 +655,8 @@ function AdminApp() {
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
-      <div className="game-panel" style={{ maxWidth: '400px', margin: '0 auto', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
+      {/* 👇 管理端登入框下推 👇 */}
+      <div className="game-panel" style={{ maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
         </h2>
@@ -827,7 +828,7 @@ function AdminApp() {
               )}
 
               {podiumData && (
-                <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+                <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content">
                     <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
