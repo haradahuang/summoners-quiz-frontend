@@ -41,19 +41,21 @@ const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對',
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
-// 這裡可以替換成你帶有 LOGO 設計的背景圖網址
 const DEFAULT_BG = '/flashquiz.jpg';
 
+// 👇 畫面排版：加入背景 Loading 判斷機制 👇
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
-  const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
+  const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
   return (
     <div style={{ 
       width: '100%', 
       minHeight: '100vh', 
-      /* 完美融合漸層與動態背景圖 */
-      backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
+      /* 魔法：如果還在 Loading，顯示極簡深黑漸層；若載入完成，直接顯示底圖，絕對不閃爍！ */
+      backgroundImage: finalBg 
+        ? `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`
+        : `radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)`,
       backgroundSize: 'cover', 
       backgroundPosition: 'center', 
       backgroundRepeat: 'no-repeat',
@@ -63,7 +65,8 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
       alignItems: 'center', 
       paddingTop: '5vh', 
       paddingBottom: '10vh', 
-      fontFamily: '"Noto Sans TC", sans-serif'
+      fontFamily: '"Noto Sans TC", sans-serif',
+      transition: 'background-image 0.5s ease-in-out' /* 背景切換時增加柔和淡入特效 */
     }}>
       {displayTitle !== "" && (
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
@@ -122,7 +125,9 @@ function PlayerApp() {
   const [players, setPlayers] = useState<any[]>([]);
   
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
-  const [roomBg, setRoomBg] = useState(DEFAULT_BG);
+  
+  // 👇 預設如果網址有 PIN 碼，就先進入 LOADING 狀態，不顯示預設圖 👇
+  const [roomBg, setRoomBg] = useState(searchParams.get('pin') ? 'LOADING' : DEFAULT_BG);
 
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -152,6 +157,11 @@ function PlayerApp() {
   useEffect(() => {
     if (pin && pin.trim().length > 0) {
       socket.emit('check_room', pin);
+      // 安全機制：如果網路卡住超過 3 秒，強制顯示預設底圖，避免永遠黑屏
+      const fallbackTimer = setTimeout(() => {
+        setRoomBg(prev => prev === 'LOADING' ? DEFAULT_BG : prev);
+      }, 3000);
+      return () => clearTimeout(fallbackTimer);
     } else {
       setRoomTitle(DEFAULT_TITLE);
       setRoomBg(DEFAULT_BG);
@@ -161,7 +171,17 @@ function PlayerApp() {
   useEffect(() => {
     socket.on('room_info', (info) => {
       setRoomTitle(info.title || DEFAULT_TITLE);
-      setRoomBg(info.backgroundImg || DEFAULT_BG);
+      const targetBg = info.backgroundImg || DEFAULT_BG;
+      
+      // 👇 圖片預載入黑科技：背景先偷偷把圖片下載好，100% 完成後才瞬間切換上去 👇
+      if (targetBg !== DEFAULT_BG) {
+        const img = new Image();
+        img.src = targetBg;
+        img.onload = () => setRoomBg(targetBg);     // 成功載入才顯示
+        img.onerror = () => setRoomBg(DEFAULT_BG);  // 失敗就用預設的
+      } else {
+        setRoomBg(DEFAULT_BG);
+      }
     });
 
     socket.on('update_players', (list) => setPlayers(list || []));
@@ -176,7 +196,7 @@ function PlayerApp() {
     socket.on('leaderboard_updated', setLeaderboard);
     socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); });
     socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
-    socket.on('join_error', (msg) => { alert(msg); setIsJoined(false); });
+    socket.on('join_error', (msg) => { alert(msg); setIsJoined(false); setRoomBg(DEFAULT_BG); });
     return () => { socket.off(); };
   }, []);
 
@@ -223,7 +243,6 @@ function PlayerApp() {
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
-        // 👇 玩家登入框下推 👇
         <div className="game-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
           <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
@@ -427,6 +446,7 @@ function PlayerApp() {
                </div>
              </div>
           )}
+          {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
         </div>
       )}
 
@@ -655,7 +675,6 @@ function AdminApp() {
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
-      {/* 👇 管理端登入框下推 👇 */}
       <div className="game-panel" style={{ maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
@@ -828,7 +847,7 @@ function AdminApp() {
               )}
 
               {podiumData && (
-                <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+                <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content">
                     <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
