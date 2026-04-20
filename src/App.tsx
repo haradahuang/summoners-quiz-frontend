@@ -42,7 +42,7 @@ const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
 // 這裡可以替換成你帶有 LOGO 設計的背景圖網址
-const DEFAULT_BG = 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?q=80&w=1920&auto=format&fit=crop';
+const DEFAULT_BG = 'const DEFAULT_BG = '/flashquiz.jpg';';
 
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
