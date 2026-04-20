@@ -209,6 +209,14 @@ function PlayerApp() {
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
   const handleBottomClick = (bottomId: string) => { setUserMatches(prev => { const newMatches = { ...prev }; let existingTopKey = null; for (const key in newMatches) { if (newMatches[key] === bottomId) existingTopKey = key; } if (activeTopId) { if (existingTopKey) delete newMatches[existingTopKey]; newMatches[activeTopId] = bottomId; setActiveTopId(null); } else { if (existingTopKey) delete newMatches[existingTopKey]; } return newMatches; }); };
 
+  // 👇 修正點：替玩家端加上專屬的結束重置功能，避免 ReferenceError 導致致命錯誤 👇
+  const handleReturnToDashboard = () => {
+    sfx.victory.pause(); sfx.victory.currentTime = 0;
+    sfx.cheer.pause(); sfx.cheer.currentTime = 0;
+    sfx.bgm.pause(); sfx.bgm.currentTime = 0;
+    window.location.reload(); // 讓玩家直接重新整理回到大廳最乾淨
+  };
+
   const sortedPlayers = [...(players || [])].sort((a, b) => b.score - a.score);
   const myRank = sortedPlayers.findIndex(p => p.username === username) !== -1 ? sortedPlayers.findIndex(p => p.username === username) + 1 : '-';
   const myScore = players.find(p => p.username === username)?.score || 0;
@@ -217,11 +225,9 @@ function PlayerApp() {
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
         <div className="game-panel" style={{ maxWidth: '400px' }}>
-          {/* 修正文字 進入競技場 改成 進入遊戲 */}
           <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
           <input type="text" placeholder="您的暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
-          {/* 修正按鈕文字 準備戰鬥 改成 Ready! */}
           <button className="btn-summon" onClick={handleJoinArena}>Ready!</button> 
         </div>
       )}
@@ -229,7 +235,6 @@ function PlayerApp() {
       {isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
         <div className="game-panel" style={{ maxWidth: '400px' }}>
           <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
-          {/* 修正文字 等待大師開啟試煉... 改成 等待遊戲開始... */}
           <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待遊戲開始...</p> 
         </div>
       )}
@@ -422,16 +427,14 @@ function PlayerApp() {
                </div>
              </div>
           )}
-          {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
         </div>
       )}
 
       {isJoined && podiumData && (
-        <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-            {/* 致命錯誤修復：使用可選鏈 ?. 安全地訪問屬性 */}
             {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
             {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
             {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
@@ -828,7 +831,6 @@ function AdminApp() {
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content">
                     <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-                    {/* 致命錯誤修復：使用可選鏈 ?. 安全地訪問屬性 */}
                     {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
                     {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
                     {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
@@ -962,7 +964,6 @@ function AdminApp() {
                 {matchPairs.map((pair, index) => (
                   <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '5px' }}>
                     <span style={{ color: '#fff', width: '20px' }}>{index+1}.</span>
-                    {/* 修正佔位符魔靈名字改為名字 */}
                     <input type="text" placeholder="名字" value={pair.tName} onChange={e => { const newPairs = [...matchPairs]; newPairs[index].tName = e.target.value; setMatchPairs(newPairs); }} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 1 }} /> 
                     <label style={{ flex: 1, height: '40px', background: 'rgba(0,0,0,0.3)', border: '1px dashed #3498db', borderRadius: '5px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
                       {pair.tImg ? <img src={pair.tImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.8rem', color: '#3498db'}}>+ 選擇圖片</span>}
