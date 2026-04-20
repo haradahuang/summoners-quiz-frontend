@@ -43,17 +43,27 @@ const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6
 const DEFAULT_TITLE = '傳奇金頭腦挑戰賽';
 const DEFAULT_BG = 'https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg';
 
-// 👇 修復點 1: 加入 backgroundRepeat: 'no-repeat' 防止圖片過小時重複 👇
+// 👇 修復點：採用「絕對定位底層背景」＋「上層滾動內容」分離架構，100% 解決切邊與死角 👇
 const PageLayout = ({ title, bgImg, children }: { title: string, bgImg?: string, children: React.ReactNode }) => (
-  <div style={{ 
-    minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
-    paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif', 
-    background: `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.95) 90%), url("${bgImg || DEFAULT_BG}")`, 
-    backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundAttachment: 'fixed' 
-  }}>
-    <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}><h1 className="text-glow">{title || DEFAULT_TITLE}</h1></div>
-    {children}
-  </div>
+  <>
+    {/* 獨立的最底層背景，永遠 100vw x 100vh 完美填滿 */}
+    <div style={{
+      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1,
+      backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url("${bgImg || DEFAULT_BG}")`,
+      backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
+    }} />
+    
+    {/* 上層捲動內容區塊 */}
+    <div style={{ 
+      minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
+      paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}>
+        <h1 className="text-glow">{title || DEFAULT_TITLE}</h1>
+      </div>
+      {children}
+    </div>
+  </>
 );
 
 // ==========================================
@@ -400,7 +410,7 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -607,15 +617,13 @@ function AdminApp() {
 
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
 
-  // 👇 修復點 2: 回大廳時洗掉背景跟標題設定 👇
   const handleReturnToDashboard = () => {
     sfx.victory.pause(); sfx.victory.currentTime = 0;
     sfx.cheer.pause(); sfx.cheer.currentTime = 0;
     sfx.bgm.pause(); sfx.bgm.currentTime = 0;
     setHostingPin(null); setHostingUrl(null); setPlayers([]);
     setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
-    setRoomTitle(DEFAULT_TITLE);
-    setRoomBg(DEFAULT_BG);
+    setRoomTitle(DEFAULT_TITLE); setRoomBg(DEFAULT_BG);
   };
 
   let displayTitle = '創作者儀表板';
@@ -820,7 +828,6 @@ function AdminApp() {
           <input type="text" value={editingPack.title} onChange={(e) => setEditingPack({...editingPack, title: e.target.value})} placeholder="題庫包名稱" className="game-input" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f1c40f' }} />
 
           <div style={{ marginBottom: '15px' }}>
-            {/* 👇 修復點 1: 新增建議尺寸的文字提示 👇 */}
             <p style={{ color: '#3498db', fontSize: '0.85rem', marginBottom: '5px' }}>* 自訂遊戲背景圖 (建議尺寸 1920x1080 16:9，支援 JPG/PNG，限 1MB 內)</p>
             <label style={{ width: '100%', height: '120px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #3498db', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
               {editingPack.backgroundImg ? <img src={editingPack.backgroundImg} alt="bg" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} /> : <span style={{fontSize: '1rem', color: '#3498db'}}>+ 選擇背景圖片 (未上傳則使用預設)</span>}
@@ -982,7 +989,7 @@ function AdminApp() {
 export default function App() {
   return (
     <ErrorBoundary>
-      {/* 👇 修復點 3: 徹底解放捲軸限制，支援所有裝置滑動 👇 */}
+      {/* 👇 修正點 3: 放棄所有內部限制，強迫最外層可以順利延伸捲動 👇 */}
       <style>{`
         html, body, #root {
           margin: 0;
