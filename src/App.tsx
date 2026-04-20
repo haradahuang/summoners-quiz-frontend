@@ -41,8 +41,8 @@ const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對',
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
-// 這裡可以替換成你帶有 LOGO 設計的背景圖網址
-const DEFAULT_BG = 'const DEFAULT_BG = '/flashquiz.jpg';
+// 👇 語法錯誤已修復 👇
+const DEFAULT_BG = '/flashquiz.jpg';
 
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
@@ -726,7 +726,7 @@ function AdminApp() {
                   )}
                   {currentQuestion.type === 'match' && (
                     <div style={{ color: '#bdc3c7', fontSize: '0.9rem', opacity: 0.8, pointerEvents: 'none' }}>
-                      <p style={{ marginBottom: '10px' }}>[圖片配對題選項]</p>
+                      <p style={{ marginBottom: '10px' }}>[圖片配驚題選項]</p>
                       <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
                          {(currentQuestion.topItems || []).map((item: any, idx: number) => (
                            <div key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', color: '#fff', textAlign: 'center' }}>
