@@ -40,31 +40,39 @@ const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T
 const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜圖', order: '排序' };
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
 
-// 👇 品牌全面升級為：瞬答 FlashQuiz 👇
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
 const DEFAULT_BG = 'https://event-fn.qpyou.cn/event/brand/smon_v2/event/12th_anniversary/assets/summonerswar_12anniv_2.jpg';
 
-const PageLayout = ({ title, bgImg, children }: { title: string, bgImg?: string, children: React.ReactNode }) => {
+// 👇 修復點 1：調整 z-index 層級，確保背景圖絕對不會被黑色蓋住 👇
+const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = (bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG;
+  // 如果明確傳入 title=""，就不要顯示預設標題 (讓空間留給大 LOGO)
+  const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
+  
   return (
-    <>
+    <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
+      {/* 絕對底層背景，設定為 0 */}
       <div style={{
-        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: -1,
+        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 0,
         backgroundImage: `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%), url("${finalBg}")`,
         backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat'
       }} />
+      
+      {/* 上方內容區塊，設定為 1，疊在背景上方 */}
       <div style={{ 
-        minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
+        position: 'relative', zIndex: 1, minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', 
         paddingTop: '5vh', paddingBottom: '10vh', fontFamily: '"Noto Sans TC", sans-serif'
       }}>
-        <div style={{ textAlign: 'center', zIndex: 10, marginBottom: '20px' }}>
-          <h1 className="text-glow">{title || DEFAULT_TITLE}</h1>
-        </div>
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
+        {displayTitle !== "" && (
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <h1 className="text-glow">{displayTitle}</h1>
+          </div>
+        )}
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {children}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
@@ -341,14 +349,14 @@ function PlayerApp() {
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel">
+         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel">
+        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {reviewData.question.type === 'guess' && (
@@ -361,15 +369,9 @@ function PlayerApp() {
 
           {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess') && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-               {(reviewData.question.options || []).map((opt: any) => {
-                 const isCorrect = reviewData.question.type === 'multi' 
-                    ? reviewData.question.correctAnswers.includes(opt.id)
-                    : opt.id === reviewData.question.correctAnswer;
-                 return (
-                   <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isCorrect ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isCorrect ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}>
-                     <span style={{ color: isCorrect ? '#2ecc71' : '#fff' }}>{isCorrect && '✔️ '} {opt.text}</span><span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span>
-                   </div>
-                 );
+               {reviewData.question.options.map((opt: any) => {
+                 const isC = reviewData.question.type === 'multi' ? reviewData.question.correctAnswers.includes(opt.id) : opt.id === reviewData.question.correctAnswer;
+                 return (<div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isC ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isC ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}><span style={{ color: isC ? '#2ecc71' : '#fff' }}>{isC && '✔️ '} {opt.text}</span><span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span></div>);
                })}
              </div>
           )}
@@ -388,16 +390,15 @@ function PlayerApp() {
 
           {reviewData.question.type === 'tf' && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '120px', height: '120px', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '20px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000', margin: '1rem auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000', margin: '1rem auto' }}>
                   {reviewData.question.correctAnswer}
                 </div>
                 <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                  <span style={{color:'#00cc66'}}>O 答題人數: {reviewData.stats['O'] || 0}</span>
-                  <span style={{color:'#ff3333'}}>X 答題人數: {reviewData.stats['X'] || 0}</span>
+                  <span style={{color:'#00cc66'}}>O : {reviewData.stats['O'] || 0}人</span>
+                  <span style={{color:'#ff3333'}}>X : {reviewData.stats['X'] || 0}人</span>
                 </div>
              </div>
           )}
-
           {reviewData.question.type === 'match' && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '10px', fontWeight: 'bold' }}>🎯 正確配對</p>
@@ -417,11 +418,12 @@ function PlayerApp() {
                </div>
              </div>
           )}
+          {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
         </div>
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease' }}>
+        <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -429,6 +431,7 @@ function PlayerApp() {
             {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1].username} <span style={{fontSize:'1rem'}}>({podiumData[1].score}分)</span></h4>}
             {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2].username} <span style={{fontSize:'0.9rem'}}>({podiumData[2].score}分)</span></h4>}
           </div>
+          <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 結束並返回大廳</button>
         </div>
       )}
     </PageLayout>
@@ -796,8 +799,8 @@ function AdminApp() {
                           {reviewData.question.correctAnswer}
                         </div>
                         <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                          <span style={{color:'#00cc66'}}>O 答題人數: {reviewData.stats['O'] || 0}</span>
-                          <span style={{color:'#ff3333'}}>X 答題人數: {reviewData.stats['X'] || 0}</span>
+                          <span style={{color:'#00cc66'}}>O : {reviewData.stats['O'] || 0}人</span>
+                          <span style={{color:'#ff3333'}}>X : {reviewData.stats['X'] || 0}人</span>
                         </div>
                      </div>
                   )}
@@ -1016,15 +1019,48 @@ function AdminApp() {
 export default function App() {
   return (
     <ErrorBoundary>
+      {/* 👇 完美修復版：將所有 Logo 發光特效與背景防呆機制整合在這裡 👇 */}
       <style>{`
-        /* 👇 確保沒有奇怪的死角或預設白邊 👇 */
         html, body, #root {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          min-height: 100vh;
-          background-color: #000;
-          overflow-x: hidden;
+          margin: 0; padding: 0; width: 100%; min-height: 100vh;
+          background-color: #0a0a0a; overflow-x: hidden;
+        }
+
+        .flashquiz-logo-wrapper {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          margin-bottom: 2rem; animation: fadeInDown 0.8s ease-out;
+        }
+
+        .flashquiz-icon {
+          width: 90px; height: 90px; background-color: rgba(0, 0, 0, 0.5);
+          border: 4px solid #ffd700; border-radius: 50%; position: relative; overflow: hidden;
+          margin-bottom: 15px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.6), inset 0 0 15px rgba(255, 215, 0, 0.4);
+          display: flex; justify-content: center; align-items: center;
+        }
+
+        .flashquiz-icon::after {
+          content: '⚡'; font-size: 4rem; color: #fff;
+          text-shadow: 0 0 15px #ffd700, 0 0 30px #f39c12; animation: pulseGlow 2s infinite alternate;
+        }
+
+        .flashquiz-title {
+          font-size: 3.5rem; font-weight: 900; color: #fff; margin: 0; text-align: center;
+          letter-spacing: 4px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 4px 4px rgba(0,0,0,0.5);
+        }
+
+        .flashquiz-subtitle {
+          font-size: 1.2rem; font-weight: 800; color: #f1c40f; margin-top: 2px; text-align: center;
+          letter-spacing: 0.3rem; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        @keyframes pulseGlow {
+          0% { transform: scale(0.95); box-shadow: 0 0 10px rgba(255,215,0,0.5); }
+          100% { transform: scale(1.05); box-shadow: 0 0 30px rgba(255,215,0,0.9), inset 0 0 20px rgba(255,215,0,0.6); }
+        }
+
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
