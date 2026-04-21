@@ -43,12 +43,10 @@ const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
 const DEFAULT_BG = '/flashquiz.jpg';
 
-// 👇 畫面排版：加入雙層背景處理機制 👇
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
-  // 漸層層：蓋在圖片上方，讓文字更好閱讀，同時當作 Loading 的底色
   const gradient = finalBg 
     ? `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%)`
     : `radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)`;
@@ -56,12 +54,10 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
   return (
     <div 
       className="page-layout-wrapper"
-      style={{ 
-        /* 魔法：設定多重背景，漸層層疊加在圖片層上方 */
-        backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient
-      }}
+      style={{ backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient }}
     >
-      {displayTitle !== "" && (
+      {/* 👇 修正：如果 bgImg 是 'LOADING'，就不顯示文字標題 👇 */}
+      {displayTitle !== "" && bgImg !== 'LOADING' && (
         <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '20px' }}>
           <h1 className="text-glow">{displayTitle}</h1>
         </div>
@@ -229,7 +225,6 @@ function PlayerApp() {
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
-        // 👇 加上 login-panel 標籤，讓 CSS 可以在手機版時自動調整間距 👇
         <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
           <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
@@ -433,7 +428,7 @@ function PlayerApp() {
                </div>
              </div>
           )}
-          {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
+          {/* 👇 已將玩家畫面的「下一題」和「揭曉」按鈕徹底刪除 👇 */}
         </div>
       )}
 
@@ -662,7 +657,6 @@ function AdminApp() {
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
-      {/* 👇 加上 login-panel 標籤 👇 */}
       <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
@@ -830,6 +824,7 @@ function AdminApp() {
                        </div>
                      </div>
                   )}
+                  {/* 👇 主持人專屬的控制按鈕，留在這邊 👇 */}
                   {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
                 </div>
               )}
