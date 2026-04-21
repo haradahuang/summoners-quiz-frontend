@@ -37,8 +37,9 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 }
 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
-const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜圖', order: '排序' };
-const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12' };
+// 👇 題型選單加入 img_choice 👇
+const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜圖', order: '排序', img_choice: '看圖' };
+const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12', img_choice: '#1abc9c' };
 
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
 const DEFAULT_BG = '/flashquiz.jpg';
@@ -239,7 +240,6 @@ function PlayerApp() {
         </div>
       )}
 
-      {/* 👇 修正：移除了 margin 的強制下推，讓作答框正常貼齊標題 👇 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
         <div className="game-panel question-transition">
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
@@ -266,15 +266,17 @@ function PlayerApp() {
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
 
-          {currentQuestion?.type === 'guess' && !hasAnswered && (
+          {/* 👇 img_choice 與 guess 共用圖片區塊，但 img_choice 無濾鏡且完整縮放 (contain) 👇 */}
+          {(currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && !hasAnswered && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                <div style={{ width: '220px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', boxShadow: '0 0 15px rgba(241,196,15,0.3)', background: '#000' }}>
-                   <img src={currentQuestion.guessImg} alt="guess" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: `blur(${(timeLeft / currentQuestion.timeLimit) * 25}px) grayscale(${(timeLeft / currentQuestion.timeLimit) * 100}%)`, transition: 'filter 1s linear' }} />
+                <div style={{ width: '100%', maxWidth: '350px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', boxShadow: '0 0 15px rgba(241,196,15,0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                   <img src={currentQuestion.guessImg} alt="question image" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: currentQuestion.type === 'guess' ? 'cover' : 'contain', width: currentQuestion.type === 'guess' ? '100%' : 'auto', filter: currentQuestion.type === 'guess' ? `blur(${(timeLeft / currentQuestion.timeLimit) * 25}px) grayscale(${(timeLeft / currentQuestion.timeLimit) * 100}%)` : 'none', transition: currentQuestion.type === 'guess' ? 'filter 1s linear' : 'none' }} />
                 </div>
              </div>
           )}
 
-          {(currentQuestion?.type === 'choice' || currentQuestion?.type === 'guess') && !hasAnswered && (
+          {/* 👇 將 img_choice 納入選項渲染條件 👇 */}
+          {(currentQuestion?.type === 'choice' || currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && !hasAnswered && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {(currentQuestion?.options || []).map((opt: any) => (
                 <button key={opt.id} onClick={() => handleChoiceClick(opt.id)} style={{ padding: '1rem', fontSize: '1.1rem', color: '#fff', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', border: 'none', borderLeft: `6px solid ${opt.color}`, cursor: 'pointer' }}>{opt.text}</button>
@@ -358,7 +360,6 @@ function PlayerApp() {
         </div>
       )}
 
-      {/* 👇 修正：移除了 margin 的強制下推 👇 */}
       {isJoined && leaderboard && !reviewData && !podiumData && (
          <div className="game-panel" style={{ paddingBottom: '2rem' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
@@ -370,7 +371,8 @@ function PlayerApp() {
         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
-          {reviewData.question.type === 'guess' && (
+          {/* 👇 img_choice 公佈答案時同樣顯示圖片 👇 */}
+          {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                 <div style={{ width: '150px', height: '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)' }}>
                    <img src={reviewData.question.guessImg} alt="guess clear" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -378,7 +380,7 @@ function PlayerApp() {
              </div>
           )}
 
-          {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess') && (
+          {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                {reviewData.question.options.map((opt: any) => {
                  const isC = reviewData.question.type === 'multi' ? reviewData.question.correctAnswers.includes(opt.id) : opt.id === reviewData.question.correctAnswer;
@@ -432,7 +434,6 @@ function PlayerApp() {
         </div>
       )}
 
-      {/* 👇 修正：移除了 margin 的強制下推 👇 */}
       {isJoined && podiumData && (
         <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
@@ -464,8 +465,9 @@ function AdminApp() {
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(DEFAULT_BG);
   
+  // 👇 狀態加入 img_choice 👇
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
-  const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order'>('choice');
+  const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order' | 'img_choice'>('choice');
   const [newQText, setNewQText] = useState('');
   const [newTime, setNewTime] = useState(10);
   const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
@@ -563,11 +565,12 @@ function AdminApp() {
   };
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order';
+    const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order' | 'img_choice';
     setQType(type);
     if (type === 'tf') setNewTime(5); 
     else if (type === 'match' || type === 'order') setNewTime(30);
     else if (type === 'guess') setNewTime(12);
+    else if (type === 'img_choice') setNewTime(15);
     else setNewTime(10);
   };
 
@@ -577,12 +580,13 @@ function AdminApp() {
 
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id); setQType(q.type); setNewQText(q.text); setNewTime(q.timeLimit);
-    if (q.type === 'choice' || q.type === 'multi' || q.type === 'guess' || q.type === 'order') {
+    // 👇 加入 img_choice 👇
+    if (q.type === 'choice' || q.type === 'multi' || q.type === 'guess' || q.type === 'order' || q.type === 'img_choice') {
       setNewOptA(q.options[0]?.text || ''); setNewOptB(q.options[1]?.text || '');
       setNewOptC(q.options[2]?.text || ''); setNewOptD(q.options[3]?.text || '');
-      if (q.type === 'choice' || q.type === 'guess') setNewAns(q.correctAnswer || 'A');
+      if (q.type === 'choice' || q.type === 'guess' || q.type === 'img_choice') setNewAns(q.correctAnswer || 'A');
       if (q.type === 'multi') setNewMultiAns(q.correctAnswers || []);
-      if (q.type === 'guess') setNewGuessImg(q.guessImg || '');
+      if (q.type === 'guess' || q.type === 'img_choice') setNewGuessImg(q.guessImg || '');
     } else if (q.type === 'tf') {
       setNewTfAns(q.correctAnswer || 'O');
     } else if (q.type === 'match') {
@@ -604,9 +608,10 @@ function AdminApp() {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
-    if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order') {
+    // 👇 加入 img_choice 👇
+    if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order' || qType === 'img_choice') {
       if (!newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) return alert('此題型強烈建議填寫 A/B/C/D 四個完整選項！');
-      if (qType === 'guess' && !newGuessImg) return alert('請上傳要讓玩家猜的圖片！');
+      if ((qType === 'guess' || qType === 'img_choice') && !newGuessImg) return alert('請上傳題目圖片！');
 
       const options = [];
       if (newOptA.trim()) options.push({ id: 'A', text: newOptA, color: '#e53e3e' });
@@ -615,10 +620,10 @@ function AdminApp() {
       if (newOptD.trim()) options.push({ id: 'D', text: newOptD, color: '#805ad5' });
       newQ.options = options;
       
-      if (qType === 'choice' || qType === 'guess') {
+      if (qType === 'choice' || qType === 'guess' || qType === 'img_choice') {
         if (!options.find(o => o.id === newAns)) return alert(`您設定的正解不存在！`);
         newQ.correctAnswer = newAns;
-        if (qType === 'guess') newQ.guessImg = newGuessImg;
+        if (qType === 'guess' || qType === 'img_choice') newQ.guessImg = newGuessImg;
       } else if (qType === 'multi') {
         if (newMultiAns.length === 0) return alert('多選題請至少勾選一個正確解答！');
         newQ.correctAnswers = newMultiAns;
@@ -715,15 +720,16 @@ function AdminApp() {
                     <h2 style={{ color: '#FFF', fontSize: '1.4rem', margin: 0, textAlign: 'left' }}>{currentQuestion.text}</h2>
                   </div>
                   
-                  {currentQuestion.type === 'guess' && (
+                  {/* 👇 主持人端也同步支援 img_choice 圖片顯示 👇 */}
+                  {(currentQuestion.type === 'guess' || currentQuestion.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                        <div style={{ width: '220px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', background: '#000' }}>
-                           <img src={currentQuestion.guessImg} alt="guess" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: `blur(${(timeLeft / currentQuestion.timeLimit) * 25}px) grayscale(${(timeLeft / currentQuestion.timeLimit) * 100}%)`, transition: 'filter 1s linear' }} />
+                        <div style={{ width: '100%', maxWidth: '350px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                           <img src={currentQuestion.guessImg} alt="question image" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: currentQuestion.type === 'guess' ? 'cover' : 'contain', width: currentQuestion.type === 'guess' ? '100%' : 'auto', filter: currentQuestion.type === 'guess' ? `blur(${(timeLeft / currentQuestion.timeLimit) * 25}px) grayscale(${(timeLeft / currentQuestion.timeLimit) * 100}%)` : 'none', transition: currentQuestion.type === 'guess' ? 'filter 1s linear' : 'none' }} />
                         </div>
                      </div>
                   )}
 
-                  {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order') && (
+                  {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order' || currentQuestion.type === 'img_choice') && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.8 }}>
                       {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', borderLeft: `5px solid ${opt.color}`, color: '#fff' }}>{opt.text}</div>))}
                     </div>
@@ -766,7 +772,8 @@ function AdminApp() {
                 <div>
                   <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
 
-                  {reviewData.question.type === 'guess' && (
+                  {/* 👇 img_choice 公佈答案縮圖 👇 */}
+                  {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                         <div style={{ width: '150px', height: '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)' }}>
                            <img src={reviewData.question.guessImg} alt="guess clear" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -774,7 +781,7 @@ function AdminApp() {
                      </div>
                   )}
 
-                  {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess') && (
+                  {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                        {reviewData.question.options.map((opt: any) => {
                          const isC = reviewData.question.type === 'multi' ? reviewData.question.correctAnswers.includes(opt.id) : opt.id === reviewData.question.correctAnswer;
@@ -897,11 +904,13 @@ function AdminApp() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              {/* 👇 編輯器下拉選單加入 img_choice 👇 */}
               <select value={qType} onChange={handleTypeChange} className="game-input" style={{ flex: 1 }}>
                 <option value="choice">單選題</option>
+                <option value="img_choice">看圖單選題</option> 
                 <option value="tf">是非題 (O/X)</option>
                 <option value="multi">多選題</option>
-                <option value="guess">猜圖題</option>
+                <option value="guess">漸進猜圖題</option>
                 <option value="order">排序題 (由上到下)</option>
                 <option value="match">圖片配對題</option>
               </select>
@@ -910,17 +919,18 @@ function AdminApp() {
             
             <input type="text" placeholder="請輸入題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
 
-            {qType === 'guess' && (
+            {/* 👇 img_choice 也需要上傳圖片的介面 👇 */}
+            {(qType === 'guess' || qType === 'img_choice') && (
               <div style={{ marginBottom: '15px' }}>
-                <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '5px' }}>* 請上傳要讓玩家猜的圖片 (支援 JPG/PNG，建議1:1，限 300KB)</p>
+                <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '5px' }}>* 請上傳題目圖片 (支援 JPG/PNG，限 300KB 以內)</p>
                 <label style={{ width: '150px', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #e84393', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden', margin: '0 auto' }}>
-                  {newGuessImg ? <img src={newGuessImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{fontSize: '0.9rem', color: '#e84393'}}>+ 選擇圖片</span>}
+                  {newGuessImg ? <img src={newGuessImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#e84393'}}>+ 選擇圖片</span>}
                   <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={handleGuessImageUpload} />
                 </label>
               </div>
             )}
 
-            {(qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order') && (
+            {(qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order' || qType === 'img_choice') && (
               <>
                 {qType === 'order' && <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>* 請依序(由上至下)在選項 A 到 D 填入正確順序，發送時系統會自動打亂讓玩家排列！</p>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
@@ -930,7 +940,7 @@ function AdminApp() {
                   <input type="text" placeholder="選項 D (必填)" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
                 </div>
                 
-                {(qType === 'choice' || qType === 'guess') && (
+                {(qType === 'choice' || qType === 'guess' || qType === 'img_choice') && (
                   <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ color: '#fff' }}>正確解答:</span>
                     <select value={newAns} onChange={(e) => setNewAns(e.target.value)} className="game-input" style={{ width: '100px', marginBottom: 0 }}>
