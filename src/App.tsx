@@ -37,7 +37,6 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: 
 }
 
 const topColors: Record<string, string> = { 'T1': '#e74c3c', 'T2': '#3498db', 'T3': '#f1c40f', 'T4': '#9b59b6' };
-// 👇 題型選單加入 img_choice 👇
 const qTypeLabels: Record<string, string> = { choice: '單選', match: '配對', tf: '是非', multi: '多選', guess: '猜圖', order: '排序', img_choice: '看圖' };
 const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6', tf: '#e67e22', multi: '#2ecc71', guess: '#e84393', order: '#f39c12', img_choice: '#1abc9c' };
 
@@ -114,7 +113,6 @@ function PlayerApp() {
   const [players, setPlayers] = useState<any[]>([]);
   
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
-  
   const [roomBg, setRoomBg] = useState(searchParams.get('pin') ? 'LOADING' : DEFAULT_BG);
 
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -266,7 +264,6 @@ function PlayerApp() {
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
 
-          {/* 👇 img_choice 與 guess 共用圖片區塊，但 img_choice 無濾鏡且完整縮放 (contain) 👇 */}
           {(currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && !hasAnswered && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                 <div style={{ width: '100%', maxWidth: '350px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', boxShadow: '0 0 15px rgba(241,196,15,0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -275,7 +272,6 @@ function PlayerApp() {
              </div>
           )}
 
-          {/* 👇 將 img_choice 納入選項渲染條件 👇 */}
           {(currentQuestion?.type === 'choice' || currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && !hasAnswered && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {(currentQuestion?.options || []).map((opt: any) => (
@@ -371,11 +367,11 @@ function PlayerApp() {
         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
-          {/* 👇 img_choice 公佈答案時同樣顯示圖片 👇 */}
+          {/* 👇 img_choice 顯示解答圖，若是 guess 則維持原樣 👇 */}
           {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                <div style={{ width: '150px', height: '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)' }}>
-                   <img src={reviewData.question.guessImg} alt="guess clear" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                   <img src={reviewData.question.type === 'img_choice' ? (reviewData.question.answerImg || reviewData.question.guessImg) : reviewData.question.guessImg} alt="answer clear" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: reviewData.question.type === 'guess' ? 'cover' : 'contain' }} />
                 </div>
              </div>
           )}
@@ -465,7 +461,6 @@ function AdminApp() {
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(DEFAULT_BG);
   
-  // 👇 狀態加入 img_choice 👇
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
   const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order' | 'img_choice'>('choice');
   const [newQText, setNewQText] = useState('');
@@ -475,7 +470,11 @@ function AdminApp() {
   const [newAns, setNewAns] = useState('A');
   const [newTfAns, setNewTfAns] = useState<'O' | 'X'>('O');
   const [newMultiAns, setNewMultiAns] = useState<string[]>([]);
+  
+  // 👇 狀態：新增 answerImg 來儲存解答圖 👇
   const [newGuessImg, setNewGuessImg] = useState<string>(''); 
+  const [newAnswerImg, setNewAnswerImg] = useState<string>('');
+  
   const [matchPairs, setMatchPairs] = useState([{ tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }]);
 
   const [players, setPlayers] = useState<any[]>([]);
@@ -563,6 +562,13 @@ function AdminApp() {
     if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
     const reader = new FileReader(); reader.onload = (event) => { setNewGuessImg(event.target?.result as string); }; reader.readAsDataURL(file);
   };
+  
+  // 👇 處理解答圖的檔案上傳 👇
+  const handleAnswerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
+    const reader = new FileReader(); reader.onload = (event) => { setNewAnswerImg(event.target?.result as string); }; reader.readAsDataURL(file);
+  };
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order' | 'img_choice';
@@ -580,13 +586,15 @@ function AdminApp() {
 
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id); setQType(q.type); setNewQText(q.text); setNewTime(q.timeLimit);
-    // 👇 加入 img_choice 👇
     if (q.type === 'choice' || q.type === 'multi' || q.type === 'guess' || q.type === 'order' || q.type === 'img_choice') {
       setNewOptA(q.options[0]?.text || ''); setNewOptB(q.options[1]?.text || '');
       setNewOptC(q.options[2]?.text || ''); setNewOptD(q.options[3]?.text || '');
       if (q.type === 'choice' || q.type === 'guess' || q.type === 'img_choice') setNewAns(q.correctAnswer || 'A');
       if (q.type === 'multi') setNewMultiAns(q.correctAnswers || []);
-      if (q.type === 'guess' || q.type === 'img_choice') setNewGuessImg(q.guessImg || '');
+      if (q.type === 'guess' || q.type === 'img_choice') {
+        setNewGuessImg(q.guessImg || '');
+        if (q.type === 'img_choice') setNewAnswerImg(q.answerImg || ''); // 讀取已儲存的解答圖
+      }
     } else if (q.type === 'tf') {
       setNewTfAns(q.correctAnswer || 'O');
     } else if (q.type === 'match') {
@@ -600,7 +608,7 @@ function AdminApp() {
   const handleCancelEditQuestion = () => {
     setEditingQuestionId(null); setQType('choice'); setNewTime(10); setNewQText('');
     setNewOptA(''); setNewOptB(''); setNewOptC(''); setNewOptD(''); setNewAns('A');
-    setNewTfAns('O'); setNewMultiAns([]); setNewGuessImg('');
+    setNewTfAns('O'); setNewMultiAns([]); setNewGuessImg(''); setNewAnswerImg('');
     setMatchPairs([{ tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }, { tName:'', tImg:'', bImg:'' }]);
   };
 
@@ -608,10 +616,10 @@ function AdminApp() {
     if (!newQText.trim()) return alert('請填寫題目敘述！');
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
-    // 👇 加入 img_choice 👇
     if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order' || qType === 'img_choice') {
       if (!newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) return alert('此題型強烈建議填寫 A/B/C/D 四個完整選項！');
       if ((qType === 'guess' || qType === 'img_choice') && !newGuessImg) return alert('請上傳題目圖片！');
+      if (qType === 'img_choice' && !newAnswerImg) return alert('請上傳解答圖片！'); // 阻擋沒有解答圖的狀況
 
       const options = [];
       if (newOptA.trim()) options.push({ id: 'A', text: newOptA, color: '#e53e3e' });
@@ -623,7 +631,10 @@ function AdminApp() {
       if (qType === 'choice' || qType === 'guess' || qType === 'img_choice') {
         if (!options.find(o => o.id === newAns)) return alert(`您設定的正解不存在！`);
         newQ.correctAnswer = newAns;
-        if (qType === 'guess' || qType === 'img_choice') newQ.guessImg = newGuessImg;
+        if (qType === 'guess' || qType === 'img_choice') {
+           newQ.guessImg = newGuessImg;
+           if (qType === 'img_choice') newQ.answerImg = newAnswerImg; // 儲存兩張圖
+        }
       } else if (qType === 'multi') {
         if (newMultiAns.length === 0) return alert('多選題請至少勾選一個正確解答！');
         newQ.correctAnswers = newMultiAns;
@@ -720,7 +731,6 @@ function AdminApp() {
                     <h2 style={{ color: '#FFF', fontSize: '1.4rem', margin: 0, textAlign: 'left' }}>{currentQuestion.text}</h2>
                   </div>
                   
-                  {/* 👇 主持人端也同步支援 img_choice 圖片顯示 👇 */}
                   {(currentQuestion.type === 'guess' || currentQuestion.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                         <div style={{ width: '100%', maxWidth: '350px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -772,11 +782,11 @@ function AdminApp() {
                 <div>
                   <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
 
-                  {/* 👇 img_choice 公佈答案縮圖 👇 */}
+                  {/* 👇 img_choice 公佈答案時，換上專屬的解答圖 (answerImg) 👇 */}
                   {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                        <div style={{ width: '150px', height: '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)' }}>
-                           <img src={reviewData.question.guessImg} alt="guess clear" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                           <img src={reviewData.question.type === 'img_choice' ? (reviewData.question.answerImg || reviewData.question.guessImg) : reviewData.question.guessImg} alt="answer clear" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: reviewData.question.type === 'guess' ? 'cover' : 'contain' }} />
                         </div>
                      </div>
                   )}
@@ -904,10 +914,9 @@ function AdminApp() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              {/* 👇 編輯器下拉選單加入 img_choice 👇 */}
               <select value={qType} onChange={handleTypeChange} className="game-input" style={{ flex: 1 }}>
                 <option value="choice">單選題</option>
-                <option value="img_choice">看圖單選題</option> 
+                <option value="img_choice">看圖單選題</option>
                 <option value="tf">是非題 (O/X)</option>
                 <option value="multi">多選題</option>
                 <option value="guess">漸進猜圖題</option>
@@ -919,14 +928,25 @@ function AdminApp() {
             
             <input type="text" placeholder="請輸入題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
 
-            {/* 👇 img_choice 也需要上傳圖片的介面 👇 */}
+            {/* 👇 看圖單選題：給予左右雙框；若是漸進猜謎，只給單框 👇 */}
             {(qType === 'guess' || qType === 'img_choice') && (
-              <div style={{ marginBottom: '15px' }}>
-                <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '5px' }}>* 請上傳題目圖片 (支援 JPG/PNG，限 300KB 以內)</p>
-                <label style={{ width: '150px', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #e84393', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden', margin: '0 auto' }}>
-                  {newGuessImg ? <img src={newGuessImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#e84393'}}>+ 選擇圖片</span>}
-                  <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={handleGuessImageUpload} />
-                </label>
+              <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '15px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '5px' }}>* {qType === 'img_choice' ? '題目圖 (作答用)' : '請上傳題目圖'}</p>
+                  <label style={{ width: '150px', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #e84393', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                    {newGuessImg ? <img src={newGuessImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#e84393'}}>+ 選擇圖片</span>}
+                    <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={handleGuessImageUpload} />
+                  </label>
+                </div>
+                {qType === 'img_choice' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <p style={{ color: '#2ecc71', fontSize: '0.85rem', marginBottom: '5px' }}>* 解答圖 (公佈用)</p>
+                    <label style={{ width: '150px', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #2ecc71', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                      {newAnswerImg ? <img src={newAnswerImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#2ecc71'}}>+ 選擇圖片</span>}
+                      <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={handleAnswerImageUpload} />
+                    </label>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1005,7 +1025,7 @@ function AdminApp() {
 
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
-      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="game-panel login-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
           <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板</h2>
           <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
