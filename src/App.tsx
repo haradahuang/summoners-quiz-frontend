@@ -56,7 +56,6 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
       className="page-layout-wrapper"
       style={{ backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient }}
     >
-      {/* 👇 修正：如果 bgImg 是 'LOADING'，就不顯示文字標題 👇 */}
       {displayTitle !== "" && bgImg !== 'LOADING' && (
         <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '20px' }}>
           <h1 className="text-glow">{displayTitle}</h1>
@@ -240,8 +239,9 @@ function PlayerApp() {
         </div>
       )}
 
+      {/* 👇 修正：移除了 margin 的強制下推，讓作答框正常貼齊標題 👇 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel question-transition login-panel" style={{ margin: '15vh auto 0' }}>
+        <div className="game-panel question-transition">
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
@@ -358,15 +358,16 @@ function PlayerApp() {
         </div>
       )}
 
+      {/* 👇 修正：移除了 margin 的強制下推 👇 */}
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel login-panel" style={{ paddingBottom: '2rem', margin: '15vh auto 0' }}>
+         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
            <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel login-panel" style={{ paddingBottom: '2rem', margin: '15vh auto 0' }}>
+        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
           {reviewData.question.type === 'guess' && (
@@ -428,12 +429,12 @@ function PlayerApp() {
                </div>
              </div>
           )}
-          {/* 👇 已將玩家畫面的「下一題」和「揭曉」按鈕徹底刪除 👇 */}
         </div>
       )}
 
+      {/* 👇 修正：移除了 margin 的強制下推 👇 */}
       {isJoined && podiumData && (
-        <div className="game-panel login-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative', margin: '15vh auto 0' }}>
+        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
@@ -677,7 +678,7 @@ function AdminApp() {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel login-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
+        <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
           {!isGameStarted ? (
             <>
               <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
@@ -824,7 +825,6 @@ function AdminApp() {
                        </div>
                      </div>
                   )}
-                  {/* 👇 主持人專屬的控制按鈕，留在這邊 👇 */}
                   {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
                 </div>
               )}
@@ -851,7 +851,7 @@ function AdminApp() {
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel login-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
+        <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
             <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
@@ -995,7 +995,7 @@ function AdminApp() {
 
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
-      <div className="game-panel login-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
           <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板</h2>
           <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
