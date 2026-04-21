@@ -224,7 +224,6 @@ function PlayerApp() {
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
-        // 👇 玩家登入框：使用絕對置中 👇
         <div className="game-panel login-panel abs-center-panel">
           <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
@@ -234,7 +233,6 @@ function PlayerApp() {
       )}
 
       {isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        // 👇 等待畫面：使用絕對置中 👇
         <div className="game-panel login-panel abs-center-panel">
           <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
           <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待遊戲開始...</p> 
@@ -674,7 +672,7 @@ function AdminApp() {
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
-      {/* 👇 後台登入框：使用絕對置中 👇 */}
+      {/* 👇 後台登入框寬度修正：使用 abs-center-panel 👇 */}
       <div className="game-panel login-panel abs-center-panel" style={{ background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
@@ -1064,7 +1062,7 @@ export default function App() {
         }
         
         .page-layout-wrapper {
-          position: relative; /* 加入這行以支援絕對置中計算 */
+          position: relative;
           width: 100%;
           min-height: 100vh;
           background-size: cover, cover;
@@ -1081,14 +1079,15 @@ export default function App() {
           background-color: #050505;
         }
         
-        /* 👇 絕對置中魔法類別 👇 */
+        /* 👇 絕對置中魔法類別（已補回 max-width 限制）👇 */
         .abs-center-panel {
           position: absolute !important;
           top: 50% !important;
           left: 50% !important;
           transform: translate(-50%, -50%) !important;
           margin: 0 !important;
-          width: 90% !important; /* 確保手機版不會貼齊邊緣 */
+          width: 100% !important;
+          max-width: 400px !important;
         }
 
         /* 📱 手機版神級魔法：處理橫式照片與版面推擠 📱 */
@@ -1100,6 +1099,11 @@ export default function App() {
           
           .title-wrapper {
             margin-top: 25vh !important;
+          }
+          
+          /* 手機版時，給絕對置中的框框留點左右呼吸空間，不要頂到死角 */
+          .abs-center-panel {
+            width: calc(100% - 40px) !important;
           }
         }
 
