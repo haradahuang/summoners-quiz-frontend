@@ -113,7 +113,6 @@ function PlayerApp() {
   const [players, setPlayers] = useState<any[]>([]);
   
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
-  
   const [roomBg, setRoomBg] = useState(searchParams.get('pin') ? 'LOADING' : DEFAULT_BG);
 
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -224,7 +223,7 @@ function PlayerApp() {
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
-        <div className="game-panel login-panel abs-center-panel">
+        <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
           <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
           <input type="text" placeholder="您的暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
@@ -233,7 +232,7 @@ function PlayerApp() {
       )}
 
       {isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel login-panel abs-center-panel">
+        <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
           <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
           <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待遊戲開始...</p> 
         </div>
@@ -368,6 +367,7 @@ function PlayerApp() {
         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
+          {/* 👇 img_choice 顯示解答圖，若是 guess 則維持原樣 👇 */}
           {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                 <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -471,6 +471,7 @@ function AdminApp() {
   const [newTfAns, setNewTfAns] = useState<'O' | 'X'>('O');
   const [newMultiAns, setNewMultiAns] = useState<string[]>([]);
   
+  // 👇 狀態：新增 answerImg 來儲存解答圖 👇
   const [newGuessImg, setNewGuessImg] = useState<string>(''); 
   const [newAnswerImg, setNewAnswerImg] = useState<string>('');
   
@@ -562,6 +563,7 @@ function AdminApp() {
     const reader = new FileReader(); reader.onload = (event) => { setNewGuessImg(event.target?.result as string); }; reader.readAsDataURL(file);
   };
   
+  // 👇 處理解答圖的檔案上傳 👇
   const handleAnswerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
@@ -591,7 +593,7 @@ function AdminApp() {
       if (q.type === 'multi') setNewMultiAns(q.correctAnswers || []);
       if (q.type === 'guess' || q.type === 'img_choice') {
         setNewGuessImg(q.guessImg || '');
-        if (q.type === 'img_choice') setNewAnswerImg(q.answerImg || ''); 
+        if (q.type === 'img_choice') setNewAnswerImg(q.answerImg || ''); // 讀取已儲存的解答圖
       }
     } else if (q.type === 'tf') {
       setNewTfAns(q.correctAnswer || 'O');
@@ -617,7 +619,7 @@ function AdminApp() {
     if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order' || qType === 'img_choice') {
       if (!newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) return alert('此題型強烈建議填寫 A/B/C/D 四個完整選項！');
       if ((qType === 'guess' || qType === 'img_choice') && !newGuessImg) return alert('請上傳題目圖片！');
-      if (qType === 'img_choice' && !newAnswerImg) return alert('請上傳解答圖片！'); 
+      if (qType === 'img_choice' && !newAnswerImg) return alert('請上傳解答圖片！'); // 阻擋沒有解答圖的狀況
 
       const options = [];
       if (newOptA.trim()) options.push({ id: 'A', text: newOptA, color: '#e53e3e' });
@@ -631,7 +633,7 @@ function AdminApp() {
         newQ.correctAnswer = newAns;
         if (qType === 'guess' || qType === 'img_choice') {
            newQ.guessImg = newGuessImg;
-           if (qType === 'img_choice') newQ.answerImg = newAnswerImg; 
+           if (qType === 'img_choice') newQ.answerImg = newAnswerImg; // 儲存兩張圖
         }
       } else if (qType === 'multi') {
         if (newMultiAns.length === 0) return alert('多選題請至少勾選一個正確解答！');
@@ -672,8 +674,7 @@ function AdminApp() {
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
-      {/* 👇 後台登入框寬度修正：使用 abs-center-panel 👇 */}
-      <div className="game-panel login-panel abs-center-panel" style={{ background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
+      <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
         </h2>
@@ -781,6 +782,7 @@ function AdminApp() {
                 <div>
                   <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
 
+                  {/* 👇 img_choice 公佈答案時，換上專屬的解答圖 (answerImg) 👇 */}
                   {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                         <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -926,6 +928,7 @@ function AdminApp() {
             
             <input type="text" placeholder="請輸入題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
 
+            {/* 👇 看圖單選題：給予左右雙框；若是漸進猜謎，只給單框 👇 */}
             {(qType === 'guess' || qType === 'img_choice') && (
               <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '15px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1022,7 +1025,7 @@ function AdminApp() {
 
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
-      <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="game-panel login-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
           <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板</h2>
           <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
@@ -1062,7 +1065,6 @@ export default function App() {
         }
         
         .page-layout-wrapper {
-          position: relative;
           width: 100%;
           min-height: 100vh;
           background-size: cover, cover;
@@ -1078,32 +1080,23 @@ export default function App() {
           transition: background-image 0.5s ease-in-out;
           background-color: #050505;
         }
-        
-        /* 👇 絕對置中魔法類別（已補回 max-width 限制）👇 */
-        .abs-center-panel {
-          position: absolute !important;
-          top: 50% !important;
-          left: 50% !important;
-          transform: translate(-50%, -50%) !important;
-          margin: 0 !important;
-          width: 100% !important;
-          max-width: 400px !important;
-        }
 
         /* 📱 手機版神級魔法：處理橫式照片與版面推擠 📱 */
         @media (max-width: 768px) {
           .page-layout-wrapper {
+            /* 第一層(漸層)蓋滿，第二層(你的照片)完整縮放對齊上方，保證不被裁切 */
             background-size: cover, contain !important;
             background-position: center, top center !important;
           }
           
+          /* 將標題在手機版往下推，讓出畫面上方約 1/4 的空間給婚紗照 */
           .title-wrapper {
             margin-top: 25vh !important;
           }
           
-          /* 手機版時，給絕對置中的框框留點左右呼吸空間，不要頂到死角 */
-          .abs-center-panel {
-            width: calc(100% - 40px) !important;
+          /* 登入框與其他面板，因為跟在標題下面，不需要再隔那麼開了 */
+          .login-panel {
+            margin-top: 2vh !important;
           }
         }
 
