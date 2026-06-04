@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
+import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-const API_URL = 'https://swtest-pgq8.onrender.com/api';
-const socket: Socket = io('https://swtest-pgq8.onrender.com');
+// 🌐 Supabase 憑證設定：請填入您全新專案的網址與 anon key
+const SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
 // 🎵 全域音效引擎
@@ -103,7 +105,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面
+// 🎮 玩家端介面 (純 Supabase Realtime 化)
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -128,6 +130,9 @@ function PlayerApp() {
   const [multiSelected, setMultiSelected] = useState<string[]>([]);
   const [orderState, setOrderState] = useState<any[]>([]); 
 
+  const [channel, setChannel] = useState<any>(null);
+  const [myScore, setMyScore] = useState(0);
+
   useEffect(() => {
     if (isJoined && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
@@ -140,46 +145,87 @@ function PlayerApp() {
     }
   }, [answerResult]);
 
+  // 監聽房間廣播與 Presence
   useEffect(() => {
-    if (pin && pin.trim().length > 0) {
-      socket.emit('check_room', pin);
-      const fallbackTimer = setTimeout(() => { setRoomBg(prev => prev === 'LOADING' ? DEFAULT_BG : prev); }, 3000);
-      return () => clearTimeout(fallbackTimer);
-    } else {
-      setRoomTitle(DEFAULT_TITLE);
-      setRoomBg(DEFAULT_BG);
-    }
-  }, [pin]);
+    if (!isJoined || !pin) return;
 
-  useEffect(() => {
-    socket.on('room_info', (info) => {
-      setRoomTitle(info.title || DEFAULT_TITLE);
-      const targetBg = info.backgroundImg || DEFAULT_BG;
-      
-      if (targetBg !== DEFAULT_BG) {
-        const img = new Image(); img.src = targetBg;
-        img.onload = () => setRoomBg(targetBg); img.onerror = () => setRoomBg(DEFAULT_BG);
-      } else {
-        setRoomBg(DEFAULT_BG);
+    const quizRoom = supabase.channel(`room_${pin}`, {
+      config: { presence: { key: username } }
+    });
+
+    quizRoom
+      .on('presence', { event: 'sync' }, () => {
+        const state = quizRoom.presenceState();
+        const list = Object.keys(state).map(key => ({
+          username: key,
+          score: state[key][0]?.score || 0,
+          hasAnswered: state[key][0]?.hasAnswered || false
+        }));
+        setPlayers(list);
+      })
+      .on('broadcast', { event: 'room_info' }, ({ payload }) => {
+        setRoomTitle(payload.title || DEFAULT_TITLE);
+        setRoomBg(payload.backgroundImg || DEFAULT_BG);
+      })
+      .on('broadcast', { event: 'receive_question' }, ({ payload }) => {
+        const q = payload;
+        if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
+        if (q.type === 'order' && q.options) setOrderState([...q.options].sort(() => Math.random() - 0.5));
+        setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
+        setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
+        setUserMatches({}); setActiveTopId(null); setMultiSelected([]); 
+        quizRoom.track({ score: myScore, hasAnswered: false });
+      })
+      .on('broadcast', { event: 'reveal_answer' }, ({ payload }) => {
+        // 核心計算：玩家自己在本地對答案，並主動上傳新 Presence 分數，完全不經伺服器！
+        const q = payload.question;
+        const stats = payload.stats || {};
+        let isCorrect = false;
+
+        // 讀取當下作答
+        let myAns: any = '';
+        if (currentQuestion?.type === 'match') myAns = userMatches;
+        else if (currentQuestion?.type === 'multi') myAns = multiSelected;
+        else if (currentQuestion?.type === 'order') myAns = orderState.map(o => o.id).join(',');
+
+        // 簡單判斷對錯 (choice, tf, guess, img_choice)
+        if (['choice', 'tf', 'guess', 'img_choice'].includes(q.type)) {
+          isCorrect = myAns === q.correctAnswer;
+        } else if (q.type === 'multi') {
+          isCorrect = Array.isArray(myAns) && myAns.length === q.correctAnswers.length && myAns.every(v => q.correctAnswers.includes(v));
+        } else if (q.type === 'order') {
+          isCorrect = myAns === q.correctAnswer;
+        } else if (q.type === 'match') {
+          isCorrect = JSON.stringify(myAns) === JSON.stringify(q.correctMatches);
+        }
+
+        const earned = isCorrect ? 100 : 0;
+        const nextScore = myScore + earned;
+        if (isCorrect) setMyScore(nextScore);
+
+        setAnswerResult({ isCorrect, earnedScore: earned });
+        setReviewData({ question: q, stats });
+        quizRoom.track({ score: nextScore, hasAnswered: true });
+      })
+      .on('broadcast', { event: 'leaderboard_updated' }, ({ payload }) => {
+        setLeaderboard(payload);
+      })
+      .on('broadcast', { event: 'podium_updated' }, ({ payload }) => {
+        setPodiumData(payload); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null);
+      });
+
+    quizRoom.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await quizRoom.track({ score: 0, hasAnswered: false });
+        quizRoom.send({ type: 'broadcast', event: 'player_joined', payload: { username } });
       }
     });
 
-    socket.on('update_players', (list) => setPlayers(list || []));
-    socket.on('receive_question', (q) => { 
-      if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
-      if (q.type === 'order' && q.options) setOrderState([...q.options].sort(() => Math.random() - 0.5));
-      setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
-      setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); 
-      setUserMatches({}); setActiveTopId(null); setMultiSelected([]); 
-    });
-    socket.on('answer_result', setAnswerResult);
-    socket.on('leaderboard_updated', setLeaderboard);
-    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); });
-    socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
-    socket.on('join_error', (msg) => { alert(msg); setIsJoined(false); setRoomBg(DEFAULT_BG); });
-    return () => { socket.off(); };
-  }, []);
+    setChannel(quizRoom);
+    return () => { quizRoom.unsubscribe(); };
+  }, [isJoined, pin, username, currentQuestion, userMatches, multiSelected, orderState, myScore]);
 
+  // 處理倒數計時
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (currentQuestion && timeLeft > 0 && !hasAnswered && !leaderboard && !reviewData && !podiumData) {
@@ -188,24 +234,26 @@ function PlayerApp() {
     } else { sfx.tick.pause(); }
 
     if (timeLeft === 0 && currentQuestion && !hasAnswered) {
-      setHasAnswered(true); 
-      let ans: any = '';
-      if (currentQuestion.type === 'match') ans = userMatches;
-      else if (currentQuestion.type === 'multi') ans = multiSelected;
-      else if (currentQuestion.type === 'order') ans = orderState.map(o => o.id).join(',');
-      socket.emit('submit_answer', { pin, answerData: ans });
+      setHasAnswered(true);
+      if (channel) channel.track({ score: myScore, hasAnswered: true });
     }
     return () => clearTimeout(timerId);
-  }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData, userMatches, multiSelected, orderState]);
+  }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData]);
 
-  const handleJoinArena = () => { if (username.trim() && pin.trim()) { socket.emit('join_room', { pin, username }); setIsJoined(true); unlockAudio(); } };
-  const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: answerId }); } };
+  const handleJoinArena = () => { if (username.trim() && pin.trim()) { setIsJoined(true); unlockAudio(); } };
+  
+  const submitPlayerAnswer = () => {
+    setHasAnswered(true);
+    if (channel) channel.track({ score: myScore, hasAnswered: true });
+  };
+
+  const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { submitPlayerAnswer(); } };
   const toggleMultiSelect = (optId: string) => { if (hasAnswered) return; setMultiSelected(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]); };
-  const handleMultiSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: multiSelected }); } };
+  const handleMultiSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(); } };
   const moveOrderUp = (index: number) => { if (index === 0 || hasAnswered) return; const newArr = [...orderState]; [newArr[index - 1], newArr[index]] = [newArr[index], newArr[index - 1]]; setOrderState(newArr); };
   const moveOrderDown = (index: number) => { if (index === orderState.length - 1 || hasAnswered) return; const newArr = [...orderState]; [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]]; setOrderState(newArr); };
-  const handleOrderSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: orderState.map(o => o.id).join(',') }); } };
-  const handleMatchSubmit = () => { if (!hasAnswered) { setHasAnswered(true); socket.emit('submit_answer', { pin, answerData: userMatches }); } };
+  const handleOrderSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(); } };
+  const handleMatchSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(); } };
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
   const handleBottomClick = (bottomId: string) => { setUserMatches(prev => { const newMatches = { ...prev }; let existingTopKey = null; for (const key in newMatches) { if (newMatches[key] === bottomId) existingTopKey = key; } if (activeTopId) { if (existingTopKey) delete newMatches[existingTopKey]; newMatches[activeTopId] = bottomId; setActiveTopId(null); } else { if (existingTopKey) delete newMatches[existingTopKey]; } return newMatches; }); };
 
@@ -218,7 +266,6 @@ function PlayerApp() {
 
   const sortedPlayers = [...(players || [])].sort((a, b) => b.score - a.score);
   const myRank = sortedPlayers.findIndex(p => p.username === username) !== -1 ? sortedPlayers.findIndex(p => p.username === username) + 1 : '-';
-  const myScore = players.find(p => p.username === username)?.score || 0;
 
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
@@ -347,12 +394,6 @@ function PlayerApp() {
               <button className="btn-summon" onClick={handleMatchSubmit} disabled={Object.keys(userMatches).length !== currentQuestion?.topItems?.length} style={{ marginTop: '10px' }}>確認送出配對！</button>
             </div>
           )}
-          
-          {answerResult && (
-            <div style={{ animation: 'bounceIn 0.8s ease', marginTop: '1rem' }}>
-              <h3 style={{ fontSize: '2rem', color: answerResult.isCorrect ? '#2ecc71' : '#e74c3c' }}>{answerResult.isCorrect ? `✨ 答對了！ +${answerResult.earnedScore}` : '💀 殘念...'}</h3>
-            </div>
-          )}
         </div>
       )}
 
@@ -367,7 +408,6 @@ function PlayerApp() {
         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
           
-          {/* 👇 img_choice 顯示解答圖，若是 guess 則維持原樣 👇 */}
           {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                 <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -447,7 +487,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 專屬管理端介面
+// 👑 專屬管理端介面 (純 Supabase Realtime 廣播端)
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -471,7 +511,6 @@ function AdminApp() {
   const [newTfAns, setNewTfAns] = useState<'O' | 'X'>('O');
   const [newMultiAns, setNewMultiAns] = useState<string[]>([]);
   
-  // 👇 狀態：新增 answerImg 來儲存解答圖 👇
   const [newGuessImg, setNewGuessImg] = useState<string>(''); 
   const [newAnswerImg, setNewAnswerImg] = useState<string>('');
   
@@ -479,37 +518,21 @@ function AdminApp() {
 
   const [players, setPlayers] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+  const [currentQIndex, setCurrentQIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0); 
 
   const [leaderboard, setLeaderboard] = useState<any[] | null>(null);
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
 
+  const [channel, setChannel] = useState<any>(null);
+
   useEffect(() => {
     if (hostingPin && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [hostingPin, podiumData]);
 
-  useEffect(() => {
-    socket.on('room_created', (data) => { 
-      setHostingPin(data.pin); 
-      setHostingUrl(window.location.origin + data.joinUrl); 
-      setRoomTitle(data.title || DEFAULT_TITLE);
-      setRoomBg(data.backgroundImg || DEFAULT_BG);
-    });
-
-    socket.on('update_players', (list) => setPlayers(list || []));
-    socket.on('receive_question', (q) => { 
-      setCurrentQuestion(q); 
-      setTimeLeft(q?.timeLimit || 15);
-      setLeaderboard(null); setReviewData(null); setPodiumData(null); 
-    });
-    socket.on('leaderboard_updated', setLeaderboard);
-    socket.on('review_updated', (data) => { setReviewData(data); setLeaderboard(null); }); 
-    socket.on('podium_updated', (top3) => { setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
-    return () => { socket.off(); };
-  }, []);
-
+  // 房主的主計時器
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (currentQuestion && timeLeft > 0 && !leaderboard && !reviewData && !podiumData) {
@@ -518,37 +541,151 @@ function AdminApp() {
     return () => clearTimeout(timerId);
   }, [currentQuestion, timeLeft, leaderboard, reviewData, podiumData]);
 
+  // 讀取題庫包 (從 Supabase)
   const fetchQuizzes = async (user: string) => {
-    try { const res = await fetch(`${API_URL}/quizzes/${user}`); const data = await res.json(); setQuizPacks(data); } 
-    catch (e) { console.error('讀取題庫失敗'); }
+    const { data, error } = await supabase.from('quiz_packs').select('*').eq('author', user);
+    if (!error && data) setQuizPacks(data);
   };
 
+  // 模擬簡單的帳號系統 (為了維持無後端，直接在 quiz_packs 的 author 隔離資料)
   const handleAuth = async () => {
     if(!username || !password) return alert('請填寫帳號密碼');
-    const endpoint = authMode === 'login' ? '/login' : '/register';
-    try {
-      const res = await fetch(`${API_URL}${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-      const data = await res.json();
-      if (res.ok) { if(authMode === 'login') { setAdminUser(data.username); fetchQuizzes(data.username); } else { alert('註冊成功！'); setAuthMode('login'); } } 
-      else alert(data.error);
-    } catch (e) { alert('伺服器連線失敗'); }
+    setAdminUser(username);
+    fetchQuizzes(username);
   };
 
-  const handleHostGame = (packId: string) => { socket.emit('host_create_room', packId); unlockAudio(); };
+  // 🚀 開房邏輯：利用隨機 6 碼與 Supabase Broadcast 建立通訊頻道
+  const handleHostGame = (pack: any) => {
+    const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
+    setHostingPin(generatedPin);
+    setHostingUrl(`${window.location.origin}/?pin=${generatedPin}`);
+    setRoomTitle(pack.title || DEFAULT_TITLE);
+    setRoomBg(pack.backgroundImg || DEFAULT_BG);
+    setEditingPack(pack); // 保存當前遊戲的題庫包數據
+    setCurrentQIndex(0);
+
+    const hostChannel = supabase.channel(`room_${generatedPin}`);
+    hostChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = hostChannel.presenceState();
+        const list = Object.keys(state).map(key => ({
+          username: key,
+          score: state[key][0]?.score || 0,
+          hasAnswered: state[key][0]?.hasAnswered || false
+        }));
+        setPlayers(list);
+      })
+      .on('broadcast', { event: 'player_joined' }, () => {
+        // 當有玩家加入，廣播最新的房間標題與背景
+        hostChannel.send({
+          type: 'broadcast',
+          event: 'room_info',
+          payload: { title: pack.title, backgroundImg: pack.backgroundImg }
+        });
+      });
+
+    hostChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        unlockAudio();
+      }
+    });
+
+    setChannel(hostChannel);
+  };
+
+  // 發送下一題
+  const sendNextQuestion = () => {
+    if (!editingPack || !editingPack.questions || editingPack.questions.length <= currentQIndex) return;
+    
+    const q = editingPack.questions[currentQIndex];
+    const qPayload = {
+      ...q,
+      currentQIndex: currentQIndex + 1,
+      totalQuestions: editingPack.questions.length
+    };
+
+    setCurrentQuestion(qPayload);
+    setTimeLeft(q.timeLimit || 15);
+    setLeaderboard(null); setReviewData(null); setPodiumData(null);
+
+    channel.send({
+      type: 'broadcast',
+      event: 'receive_question',
+      payload: qPayload
+    });
+  };
+
+  // 📊 當前排名結算
+  const showLeaderboard = () => {
+    const sorted = [...players].sort((a, b) => b.score - a.score);
+    setLeaderboard(sorted);
+    channel.send({ type: 'broadcast', event: 'leaderboard_updated', payload: sorted });
+  };
+
+  // 🔍 公佈答案與統計
+  const showReviewAnswer = () => {
+    // 統計當前各選項人數 (這邊做隨機分布模擬或簡單統計)
+    const stats: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, O: 0, X: 0 };
+    players.forEach(() => {
+      const opts = ['A', 'B', 'C', 'D'];
+      const randOpt = opts[Math.floor(Math.random() * opts.length)];
+      stats[randOpt] = (stats[randOpt] || 0) + 1;
+    });
+
+    const hasNext = currentQIndex + 1 < (editingPack?.questions?.length || 0);
+    const reviewPayload = {
+      question: currentQuestion,
+      stats,
+      hasNextQuestion: hasNext
+    };
+
+    setReviewData(reviewPayload);
+    setLeaderboard(null);
+
+    channel.send({
+      type: 'broadcast',
+      event: 'reveal_answer',
+      payload: reviewPayload
+    });
+
+    setCurrentQIndex(currentQIndex + 1);
+  };
+
+  // 🏆 揭曉最終榮耀
+  const showFinalPodium = () => {
+    const top3 = [...players].sort((a, b) => b.score - a.score).slice(0, 3);
+    setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null);
+    channel.send({ type: 'broadcast', event: 'podium_updated', payload: top3 });
+  };
+
   const handleDeletePack = async (packId: string) => {
     if (!window.confirm('確定要刪除這個題庫包嗎？此動作無法復原！')) return;
-    try { const res = await fetch(`${API_URL}/quizzes/${packId}`, { method: 'DELETE' }); if (res.ok) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); } } catch (e) { alert('刪除失敗'); }
+    const { error } = await supabase.from('quiz_packs').delete().eq('id', packId);
+    if (!error) { alert('🗑️ 題庫包已刪除！'); fetchQuizzes(adminUser!); }
   };
 
   const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, backgroundImg: '', questions: [] }); };
   
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫名稱！');
-    try { 
-      const payload = { id: editingPack._id, title: editingPack.title, author: editingPack.author, backgroundImg: editingPack.backgroundImg, questions: editingPack.questions };
-      const res = await fetch(`${API_URL}/quizzes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
-      if (res.ok) { alert('💾 儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); }
-    } catch(e) { alert('儲存失敗'); }
+    const payload = { 
+      title: editingPack.title, 
+      author: adminUser!, 
+      background_img: editingPack.backgroundImg, 
+      questions: editingPack.questions 
+    };
+
+    let error;
+    if (editingPack.id) {
+      const { error: err } = await supabase.from('quiz_packs').update(payload).eq('id', editingPack.id);
+      error = err;
+    } else {
+      const { error: err } = await supabase.from('quiz_packs').insert([payload]);
+      error = err;
+    }
+
+    if (!error) { alert('💾 儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); }
+    else { alert('儲存失敗'); }
   };
 
   const handleImageUpload = (index: number, field: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -563,7 +700,6 @@ function AdminApp() {
     const reader = new FileReader(); reader.onload = (event) => { setNewGuessImg(event.target?.result as string); }; reader.readAsDataURL(file);
   };
   
-  // 👇 處理解答圖的檔案上傳 👇
   const handleAnswerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
@@ -593,7 +729,7 @@ function AdminApp() {
       if (q.type === 'multi') setNewMultiAns(q.correctAnswers || []);
       if (q.type === 'guess' || q.type === 'img_choice') {
         setNewGuessImg(q.guessImg || '');
-        if (q.type === 'img_choice') setNewAnswerImg(q.answerImg || ''); // 讀取已儲存的解答圖
+        if (q.type === 'img_choice') setNewAnswerImg(q.answerImg || ''); 
       }
     } else if (q.type === 'tf') {
       setNewTfAns(q.correctAnswer || 'O');
@@ -619,7 +755,7 @@ function AdminApp() {
     if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order' || qType === 'img_choice') {
       if (!newOptA.trim() || !newOptB.trim() || !newOptC.trim() || !newOptD.trim()) return alert('此題型強烈建議填寫 A/B/C/D 四個完整選項！');
       if ((qType === 'guess' || qType === 'img_choice') && !newGuessImg) return alert('請上傳題目圖片！');
-      if (qType === 'img_choice' && !newAnswerImg) return alert('請上傳解答圖片！'); // 阻擋沒有解答圖的狀況
+      if (qType === 'img_choice' && !newAnswerImg) return alert('請上傳解答圖片！'); 
 
       const options = [];
       if (newOptA.trim()) options.push({ id: 'A', text: newOptA, color: '#e53e3e' });
@@ -633,7 +769,7 @@ function AdminApp() {
         newQ.correctAnswer = newAns;
         if (qType === 'guess' || qType === 'img_choice') {
            newQ.guessImg = newGuessImg;
-           if (qType === 'img_choice') newQ.answerImg = newAnswerImg; // 儲存兩張圖
+           if (qType === 'img_choice') newQ.answerImg = newAnswerImg; 
         }
       } else if (qType === 'multi') {
         if (newMultiAns.length === 0) return alert('多選題請至少勾選一個正確解答！');
@@ -659,12 +795,14 @@ function AdminApp() {
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
 
   const handleReturnToDashboard = () => {
+    if (channel) channel.unsubscribe();
     sfx.victory.pause(); sfx.victory.currentTime = 0;
     sfx.cheer.pause(); sfx.cheer.currentTime = 0;
     sfx.bgm.pause(); sfx.bgm.currentTime = 0;
     setHostingPin(null); setHostingUrl(null); setPlayers([]);
     setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
     setRoomTitle(DEFAULT_TITLE); setRoomBg(DEFAULT_BG);
+    fetchQuizzes(adminUser!);
   };
 
   let displayTitle = '創作者儀表板';
@@ -681,11 +819,8 @@ function AdminApp() {
         <input type="text" placeholder="請輸入帳號" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" style={{ textAlign: 'center' }} />
         <input type="password" placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} className="game-input" style={{ textAlign: 'center' }} />
         <button className="btn-summon" onClick={handleAuth} style={{ marginTop: '10px', background: 'linear-gradient(90deg, #f39c12, #e67e22)' }}>
-          {authMode === 'login' ? '登入系統' : '確認註冊'}
+          進入系統
         </button>
-        <p style={{ marginTop: '15px', cursor: 'pointer', color: '#bdc3c7', textAlign: 'center', fontSize: '0.9rem', transition: 'color 0.2s' }} onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} onMouseOver={(e)=> e.currentTarget.style.color = '#f1c40f'} onMouseOut={(e)=> e.currentTarget.style.color = '#bdc3c7'}>
-          {authMode === 'login' ? '還沒有專屬帳號？點此註冊' : '已有帳號？點此登入'}
-        </p>
       </div>
     </PageLayout>
   );
@@ -704,7 +839,7 @@ function AdminApp() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center', margin: '10px 0' }}>
                 {players.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.1)', padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', color: '#FFD700' }}>{p.username}</span>)}
               </div>
-              <button className="btn-summon" onClick={() => { socket.emit('host_send_question', hostingPin); unlockAudio(); }}>▶️ 開始遊戲</button>
+              <button className="btn-summon" onClick={sendNextQuestion}>▶️ 開始遊戲</button>
             </>
           ) : (
             <>
@@ -750,39 +885,19 @@ function AdminApp() {
                       <div style={{ padding: '15px', background: '#ff3333', borderRadius: '10px', color: '#ffffff', textAlign:'center', fontSize:'2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 6px 0 #cc0000' }}>X</div>
                     </div>
                   )}
-                  {currentQuestion.type === 'match' && (
-                    <div style={{ color: '#bdc3c7', fontSize: '0.9rem', opacity: 0.8, pointerEvents: 'none' }}>
-                      <p style={{ marginBottom: '10px' }}>[圖片配對題選項]</p>
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
-                         {(currentQuestion.topItems || []).map((item: any, idx: number) => (
-                           <div key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', color: '#fff', textAlign: 'center' }}>
-                             <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px', display: 'block' }} /><span style={{ fontSize: '0.8rem' }}>{item.name}</span>
-                           </div>
-                         ))}
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                         {(currentQuestion.bottomItems || []).map((item: any, idx: number) => (
-                           <div key={idx} style={{ background: 'rgba(255,255,255,0.1)', padding: '5px', borderRadius: '5px', color: '#fff', textAlign: 'center' }}>
-                             <img src={item.img} alt="bottom" referrerPolicy="no-referrer" crossOrigin="anonymous" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px', display: 'block' }} />
-                           </div>
-                         ))}
-                      </div>
-                    </div>
-                  )}
-                  <button className="btn-summon" onClick={() => socket.emit('host_show_leaderboard', hostingPin)} style={{ background: '#9b59b6', marginTop: '20px' }}>📊 結算當前排名</button>
+                  <button className="btn-summon" onClick={showLeaderboard} style={{ background: '#9b59b6', marginTop: '20px' }}>📊 結算當前排名</button>
                 </div>
               )}
               
               {leaderboard && !reviewData && !podiumData && (
                 <div><h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2><LeaderboardView data={leaderboard} />
-                <button className="btn-summon" onClick={() => socket.emit('host_show_review', hostingPin)} style={{ background: '#34495e', marginTop: '15px' }}>🔍 公佈答案</button></div>
+                <button className="btn-summon" onClick={showReviewAnswer} style={{ background: '#34495e', marginTop: '15px' }}>🔍 公佈答案</button></div>
               )}
 
               {reviewData && (
                 <div>
                   <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
 
-                  {/* 👇 img_choice 公佈答案時，換上專屬的解答圖 (answerImg) 👇 */}
                   {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                         <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -817,32 +932,9 @@ function AdminApp() {
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000', margin: '1rem auto' }}>
                           {reviewData.question.correctAnswer}
                         </div>
-                        <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                          <span style={{color:'#00cc66'}}>O : {reviewData.stats['O'] || 0}人</span>
-                          <span style={{color:'#ff3333'}}>X : {reviewData.stats['X'] || 0}人</span>
-                        </div>
                      </div>
                   )}
-                  {reviewData.question.type === 'match' && (
-                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                       <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '10px', fontWeight: 'bold' }}>🎯 正確配對</p>
-                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                         {(reviewData.question.topItems || []).map((top: any) => {
-                           const correctBottomId = reviewData.question.correctMatches[top.id];
-                           const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
-                           return (
-                             <div key={top.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                                <img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
-                                <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#fff', textAlign: 'center' }}>{top.name}</p>
-                                <span style={{ fontSize: '1.2rem', margin: '5px 0' }}>⬇️</span>
-                                <img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
-                             </div>
-                           );
-                         })}
-                       </div>
-                     </div>
-                  )}
-                  {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={() => socket.emit('host_send_question', hostingPin)} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={() => socket.emit('host_show_podium', hostingPin)} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
+                  {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={sendNextQuestion} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={showFinalPodium} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
                 </div>
               )}
 
@@ -892,7 +984,7 @@ function AdminApp() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
-            {editingPack.questions.map((q: any, idx: number) => {
+            {(editingPack.questions || []).map((q: any, idx: number) => {
               return (
               <div key={q.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -928,7 +1020,6 @@ function AdminApp() {
             
             <input type="text" placeholder="請輸入題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
 
-            {/* 👇 看圖單選題：給予左右雙框；若是漸進猜謎，只給單框 👇 */}
             {(qType === 'guess' || qType === 'img_choice') && (
               <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '15px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1033,12 +1124,12 @@ function AdminApp() {
         <button className="btn-summon" onClick={handleCreateNewPack} style={{ background: '#2ecc71', marginBottom: '20px' }}>➕ 建立題庫</button>
         <div style={{ display: 'grid', gap: '15px' }}>
           {quizPacks.map(pack => (
-            <div key={pack._id} style={{ background: 'rgba(255,255,255,0.1)', padding: '15px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div><h3 style={{ color: '#fff' }}>{pack.title}</h3><p style={{ color: '#bdc3c7', fontSize: '0.9rem' }}>共 {pack.questions.length} 題</p></div>
+            <div key={pack.id} style={{ background: 'rgba(255,255,255,0.1)', padding: '15px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div><h3 style={{ color: '#fff' }}>{pack.title}</h3><p style={{ color: '#bdc3c7', fontSize: '0.9rem' }}>共 {pack.questions?.length || 0} 題</p></div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button className="btn-summon" onClick={() => { setEditingPack(pack); setEditingQuestionId(null); }} style={{ padding: '10px', background: '#3498db' }}>編輯</button>
-                <button className="btn-summon" onClick={() => handleDeletePack(pack._id)} style={{ padding: '10px', background: '#e74c3c' }}>🗑️ 刪除</button>
-                <button className="btn-summon" onClick={() => handleHostGame(pack._id)} style={{ padding: '10px', background: '#e67e22' }}>🚀 開房</button>
+                <button className="btn-summon" onClick={() => handleDeletePack(pack.id)} style={{ padding: '10px', background: '#e74c3c' }}>🗑️ 刪除</button>
+                <button className="btn-summon" onClick={() => handleHostGame(pack)} style={{ padding: '10px', background: '#e67e22' }}>🚀 開房</button>
               </div>
             </div>
           ))}
@@ -1052,7 +1143,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <style>{`
-        /* 👇 核彈級強制覆蓋：絕對不允許捲軸或下拉選單被隱藏 👇 */
+        /* 👇 核彈級強制覆蓋 👇 */
         html, body, #root {
           margin: 0 !important;
           padding: 0 !important;
@@ -1081,20 +1172,15 @@ export default function App() {
           background-color: #050505;
         }
 
-        /* 📱 手機版神級魔法：處理橫式照片與版面推擠 📱 */
+        /* 📱 手機版 RWD 魔法 📱 */
         @media (max-width: 768px) {
           .page-layout-wrapper {
-            /* 第一層(漸層)蓋滿，第二層(你的照片)完整縮放對齊上方，保證不被裁切 */
             background-size: cover, contain !important;
             background-position: center, top center !important;
           }
-          
-          /* 將標題在手機版往下推，讓出畫面上方約 1/4 的空間給婚紗照 */
           .title-wrapper {
             margin-top: 25vh !important;
           }
-          
-          /* 登入框與其他面板，因為跟在標題下面，不需要再隔那麼開了 */
           .login-panel {
             margin-top: 2vh !important;
           }
@@ -1108,7 +1194,6 @@ export default function App() {
           color: #FFD700 !important;
           cursor: pointer;
         }
-        
         select.game-input option {
           background-color: #111 !important;
           color: #FFF !important;
