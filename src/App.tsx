@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
 // 🌐 Supabase 憑證設定：請填入您全新專案的網址與 anon key (Publishable)
-const SUPABASE_URL = 'https://你的專案代碼.supabase.co';
-const SUPABASE_ANON_KEY = '你的ANON_KEY';
+const SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
