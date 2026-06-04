@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
 // 🌐 Supabase 憑證設定：請填入您全新專案的網址與 anon key (Publishable)
-const SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/';
-const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7';
+const SUPABASE_URL = 'https://你的專案代碼.supabase.co';
+const SUPABASE_ANON_KEY = '你的ANON_KEY';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
@@ -495,7 +495,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 專屬管理端介面 (純大螢幕 PC 投影最佳化)
+// 👑 專屬管理端介面 (純大螢幕 PC 投影最佳化，加上 .admin-mega-panel 強制放大)
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -749,6 +749,7 @@ function AdminApp() {
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
+      {/* 登入區維持原樣 */}
       <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 20, 40, 0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 215, 0, 0.3)' }}>
         <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem' }}>
           {authMode === 'login' ? '🔐 創作者登入' : '✨ 註冊新帳號'}
@@ -760,12 +761,12 @@ function AdminApp() {
     </PageLayout>
   );
 
-  // 👑 【核心修改區：主持人控場後台 UI 寬度徹底放大至 1400px，專為投影設計】
+  // 👑 【套用 admin-mega-panel 強制放大的主持人控場中心】
   if (hostingPin) {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ width: '95%', maxWidth: '1400px', margin: '0 auto', paddingBottom: '3rem', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
+        <div className="game-panel admin-mega-panel" style={{ margin: '0 auto', paddingBottom: '3rem', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
           {!isGameStarted ? (
             <>
               <h2 style={{ color: '#e74c3c', fontSize: '2.5rem', marginBottom: '20px' }}>👑 主持人控場中心</h2>
@@ -802,7 +803,6 @@ function AdminApp() {
                     <h2 style={{ color: '#FFF', fontSize: '2.8rem', margin: 0, textAlign: 'left', lineHeight: '1.3' }}>{currentQuestion.text}</h2>
                   </div>
                   
-                  {/* 👑 【大螢幕專屬：巨大化題目圖 (MaxWidth 700px)】 */}
                   {(currentQuestion.type === 'guess' || currentQuestion.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '35px' }}>
                         <div style={{ width: '100%', maxWidth: '700px', height: '450px', borderRadius: '25px', overflow: 'hidden', border: '5px solid #f1c40f', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.6)' }}>
@@ -811,7 +811,6 @@ function AdminApp() {
                      </div>
                   )}
 
-                  {/* 👑 【大螢幕專屬：巨大化選項方塊 (Gap 20px, Font 1.8rem)】 */}
                   {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order' || currentQuestion.type === 'img_choice') && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', opacity: 0.95 }}>
                       {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '25px', fontSize: '1.8rem', fontWeight: 'bold', background: 'rgba(255,255,255,0.1)', borderRadius: '15px', borderLeft: `12px solid ${opt.color}`, color: '#fff', boxShadow: '0 6px 15px rgba(0,0,0,0.3)', transition: 'transform 0.2s' }}>{opt.text}</div>))}
@@ -895,11 +894,11 @@ function AdminApp() {
     );
   }
 
+  // 👑 【套用 admin-mega-panel 強制放大的題庫編輯器】
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        {/* ✏️ 題庫編輯器也放寬至 1200px 方便 PC 舒適操作 */}
-        <div className="game-panel" style={{ width: '95%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '3rem', background: 'rgba(15, 20, 35, 0.95)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
+        <div className="game-panel admin-mega-panel" style={{ margin: '0 auto', paddingBottom: '3rem', background: 'rgba(15, 20, 35, 0.95)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
             <h2 style={{ color: '#FFD700', margin: 0 }}>✏️ 題庫編輯器</h2>
             <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.6rem 1.2rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>返回列表</button>
@@ -1056,9 +1055,10 @@ function AdminApp() {
     );
   }
 
+  // 👑 【套用 admin-mega-panel 強制放大的創作者儀表板】
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
-      <div className="game-panel login-panel" style={{ width: '95%', maxWidth: '1200px', margin: '0 auto', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
+      <div className="game-panel login-panel admin-mega-panel" style={{ margin: '0 auto', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2.5rem', alignItems: 'center' }}>
           <h2 style={{ color: '#FFD700', margin: 0, fontSize: '2rem', textShadow: '0 0 10px rgba(241,196,15,0.5)' }}>📚 創作者儀表板</h2>
           <button onClick={() => setAdminUser(null)} style={{ padding: '0.6rem 1.2rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>登出系統</button>
@@ -1136,6 +1136,16 @@ export default function App() {
           .login-panel {
             margin-top: 2vh !important;
           }
+          /* 手機版題庫編輯器選項變成單行 */
+          #question-edit-form > div:nth-child(5) {
+             grid-template-columns: 1fr !important;
+          }
+        }
+
+        /* 👇 核彈級強制放大後台外框，無視任何 index.css 限制 👇 */
+        .admin-mega-panel {
+          max-width: 1400px !important;
+          width: 95% !important;
         }
 
         select.game-input {
