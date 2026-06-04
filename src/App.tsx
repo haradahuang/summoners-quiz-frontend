@@ -3,9 +3,9 @@ import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom'
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-// 🌐 Supabase 憑證設定：請填入您全新專案的網址與 anon key
-const SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/';
-const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7';
+// 🌐 Supabase 憑證設定：請填入您全新專案的網址與 anon key (Publishable)
+const SUPABASE_URL = 'https://你的專案代碼.supabase.co';
+const SUPABASE_ANON_KEY = '你的ANON_KEY';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
@@ -45,12 +45,15 @@ const qTypeColors: Record<string, string> = { choice: '#3498db', match: '#9b59b6
 const DEFAULT_TITLE = '瞬答 FlashQuiz';
 const DEFAULT_BG = '/flashquiz.jpg';
 
+// ==========================================
+// 🎨 全域大佈局組件 (導入 RWD 超大標題)
+// ==========================================
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
   const gradient = finalBg 
-    ? `radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.85) 100%)`
+    ? `radial-gradient(circle at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.9) 100%)`
     : `radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)`;
 
   return (
@@ -59,8 +62,17 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
       style={{ backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient }}
     >
       {displayTitle !== "" && bgImg !== 'LOADING' && (
-        <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <h1 className="text-glow">{displayTitle}</h1>
+        <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '30px' }}>
+          <h1 className="text-glow" style={{ 
+            fontSize: 'clamp(2.5rem, 6vw, 5rem)', 
+            textShadow: '0 0 25px rgba(241,196,15,0.9), 3px 3px 6px rgba(0,0,0,0.9)', 
+            margin: 0, 
+            padding: '0 20px',
+            letterSpacing: '2px',
+            color: '#FFF'
+          }}>
+            {displayTitle}
+          </h1>
         </div>
       )}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -94,9 +106,9 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
         const isTop3 = finalIdx < 3; const rankColors = ['#FFD700', '#bdc3c7', '#e67e22']; const rankColor = isTop3 ? rankColors[finalIdx] : '#444';
         const fontSize = finalIdx === 0 ? '1.6rem' : finalIdx === 1 ? '1.4rem' : finalIdx === 2 ? '1.2rem' : '1.05rem';
         return (
-          <div key={player.username} style={{ position: 'absolute', top: `${idx * 70}px`, left: 0, width: '100%', height: '60px', opacity: player.opacity, transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', borderLeft: `5px solid ${rankColor}`, zIndex: 20 - finalIdx }}>
+          <div key={player.username} style={{ position: 'absolute', top: `${idx * 70}px`, left: 0, width: '100%', height: '60px', opacity: player.opacity, transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 1.5rem', background: 'rgba(20, 30, 48, 0.8)', backdropFilter: 'blur(10px)', borderRadius: '12px', borderLeft: `6px solid ${rankColor}`, boxShadow: '0 4px 15px rgba(0,0,0,0.5)', zIndex: 20 - finalIdx }}>
             <span title={player.username} style={{ color: isTop3 ? rankColor : '#FFF', fontSize, fontWeight: isTop3 ? '900' : 'bold', transition: 'all 0.5s', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left', paddingRight: '10px' }}>#{finalIdx + 1} {player.username}</span>
-            <span style={{ color: isTop3 ? rankColor : '#FFD700', fontSize, fontWeight: isTop3 ? '900' : 'bold', transition: 'all 0.5s', flexShrink: 0 }}>{player.score} 分</span>
+            <span style={{ color: isTop3 ? rankColor : '#FFD700', fontSize, fontWeight: isTop3 ? '900' : 'bold', transition: 'all 0.5s', flexShrink: 0, textShadow: '1px 1px 2px #000' }}>{player.score} 分</span>
           </div>
         );
       })}
@@ -105,7 +117,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面 (純 Supabase Realtime 化)
+// 🎮 玩家端介面 (兼顧手機、平板、PC 的 APP 化佈局)
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -145,7 +157,6 @@ function PlayerApp() {
     }
   }, [answerResult]);
 
-  // 監聽房間廣播與 Presence
   useEffect(() => {
     if (!isJoined || !pin) return;
 
@@ -177,18 +188,15 @@ function PlayerApp() {
         quizRoom.track({ score: myScore, hasAnswered: false });
       })
       .on('broadcast', { event: 'reveal_answer' }, ({ payload }) => {
-        // 核心計算：玩家自己在本地對答案，並主動上傳新 Presence 分數，完全不經伺服器！
         const q = payload.question;
         const stats = payload.stats || {};
         let isCorrect = false;
 
-        // 讀取當下作答
         let myAns: any = '';
         if (currentQuestion?.type === 'match') myAns = userMatches;
         else if (currentQuestion?.type === 'multi') myAns = multiSelected;
         else if (currentQuestion?.type === 'order') myAns = orderState.map(o => o.id).join(',');
 
-        // 簡單判斷對錯 (choice, tf, guess, img_choice)
         if (['choice', 'tf', 'guess', 'img_choice'].includes(q.type)) {
           isCorrect = myAns === q.correctAnswer;
         } else if (q.type === 'multi') {
@@ -225,7 +233,6 @@ function PlayerApp() {
     return () => { quizRoom.unsubscribe(); };
   }, [isJoined, pin, username, currentQuestion, userMatches, multiSelected, orderState, myScore]);
 
-  // 處理倒數計時
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (currentQuestion && timeLeft > 0 && !hasAnswered && !leaderboard && !reviewData && !podiumData) {
@@ -270,113 +277,114 @@ function PlayerApp() {
   return (
     <PageLayout title={roomTitle} bgImg={roomBg}>
       {!isJoined && (
-        <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
-          <h2 style={{ color: '#FFD700', marginBottom: '1rem' }}>進入遊戲</h2> 
+        <div className="game-panel login-panel" style={{ width: '95%', maxWidth: '400px', margin: '20vh auto 0', background: 'rgba(10, 15, 30, 0.85)' }}>
+          <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', fontSize: '2rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>進入競技場</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
-          <input type="text" placeholder="您的暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
-          <button className="btn-summon" onClick={handleJoinArena}>Ready!</button> 
+          <input type="text" placeholder="您的召喚師暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
+          <button className="btn-summon" onClick={handleJoinArena} style={{ background: 'linear-gradient(90deg, #f39c12, #e67e22)' }}>Ready!</button> 
         </div>
       )}
 
       {isJoined && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel login-panel" style={{ maxWidth: '400px', margin: '20vh auto 0' }}>
-          <h2 style={{ color: '#FFD700', fontSize: '1.8rem', marginBottom: '1rem' }}>房號: {pin}</h2>
-          <p style={{ fontSize: '1.3rem', color: '#3498db' }}>等待遊戲開始...</p> 
+        <div className="game-panel login-panel" style={{ width: '95%', maxWidth: '400px', margin: '20vh auto 0', textAlign: 'center' }}>
+          <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '1rem', textShadow: '0 0 10px rgba(241,196,15,0.8)' }}>房號: {pin}</h2>
+          <p style={{ fontSize: '1.4rem', color: '#3498db', fontWeight: 'bold' }}>連線成功，等待主持人開始...</p> 
         </div>
       )}
 
+      {/* 📱 玩家介面固定最大寬度 600px，確保在 PC 上維持 APP 般的精緻比例 */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
-        <div className="game-panel question-transition">
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '0.95rem', marginBottom: '15px', borderBottom: '1px solid rgba(255,215,0,0.3)', paddingBottom: '8px' }}>
+        <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '15px', borderBottom: '2px solid rgba(255,215,0,0.3)', paddingBottom: '10px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
           
-          <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem', border: '1px solid rgba(255,215,0,0.5)' }}>
+          <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1.5rem', border: '1px solid rgba(255,215,0,0.5)', boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.8)' }}>
             <div style={{ height: '100%', background: 'linear-gradient(90deg, #f39c12, #f1c40f)', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s' }} />
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: '900', fontSize: '0.9rem', textShadow: '1px 1px 2px #000' }}>
               題目進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1.2rem', flexWrap: 'wrap' }}>
+            <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '6px 14px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', boxShadow: '0 4px 8px rgba(0,0,0,0.4)', whiteSpace: 'nowrap' }}>
               {qTypeLabels[currentQuestion.type] || '未知'}
             </span>
-            <h2 style={{ color: '#FFF', fontSize: '1.4rem', margin: 0, textAlign: 'left' }}>
+            <h2 style={{ color: '#FFF', fontSize: '1.5rem', margin: 0, textAlign: 'left', lineHeight: '1.4' }}>
               {currentQuestion?.text}
             </h2>
           </div>
 
-          <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.5)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+          <div style={{ width: '100%', height: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '5px', overflow: 'hidden', marginBottom: '1.5rem', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.8)' }}>
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
 
           {(currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && !hasAnswered && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                <div style={{ width: '100%', maxWidth: '350px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', boxShadow: '0 0 15px rgba(241,196,15,0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '100%', maxWidth: '350px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', boxShadow: '0 0 15px rgba(241,196,15,0.4)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                    <img src={currentQuestion.guessImg} alt="question image" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: currentQuestion.type === 'guess' ? 'cover' : 'contain', width: currentQuestion.type === 'guess' ? '100%' : 'auto', filter: currentQuestion.type === 'guess' ? `blur(${(timeLeft / currentQuestion.timeLimit) * 25}px) grayscale(${(timeLeft / currentQuestion.timeLimit) * 100}%)` : 'none', transition: currentQuestion.type === 'guess' ? 'filter 1s linear' : 'none' }} />
                 </div>
              </div>
           )}
 
           {(currentQuestion?.type === 'choice' || currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && !hasAnswered && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
               {(currentQuestion?.options || []).map((opt: any) => (
-                <button key={opt.id} onClick={() => handleChoiceClick(opt.id)} style={{ padding: '1rem', fontSize: '1.1rem', color: '#fff', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', border: 'none', borderLeft: `6px solid ${opt.color}`, cursor: 'pointer' }}>{opt.text}</button>
+                <button key={opt.id} onClick={() => handleChoiceClick(opt.id)} style={{ padding: '1.2rem', fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', background: 'rgba(30, 40, 60, 0.8)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', borderLeft: `8px solid ${opt.color}`, cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', transition: 'transform 0.1s' }}>{opt.text}</button>
               ))}
             </div>
           )}
 
           {currentQuestion?.type === 'tf' && !hasAnswered && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-              <button onClick={() => handleChoiceClick('O')} style={{ padding: '1.5rem', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: '#00cc66', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #00994d', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>O</button>
-              <button onClick={() => handleChoiceClick('X')} style={{ padding: '1.5rem', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: '#ff3333', borderRadius: '15px', border: 'none', cursor: 'pointer', boxShadow: '0 8px 0 #cc0000', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>X</button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <button onClick={() => handleChoiceClick('O')} style={{ padding: '2rem', fontSize: '5.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: 'linear-gradient(145deg, #00e673, #00b359)', borderRadius: '20px', border: 'none', cursor: 'pointer', boxShadow: '0 10px 0 #008040, 0 15px 20px rgba(0,0,0,0.4)', textShadow: '0 4px 8px rgba(0,0,0,0.4)' }}>O</button>
+              <button onClick={() => handleChoiceClick('X')} style={{ padding: '2rem', fontSize: '5.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: 'linear-gradient(145deg, #ff4d4d, #e60000)', borderRadius: '20px', border: 'none', cursor: 'pointer', boxShadow: '0 10px 0 #b30000, 0 15px 20px rgba(0,0,0,0.4)', textShadow: '0 4px 8px rgba(0,0,0,0.4)' }}>X</button>
             </div>
           )}
 
           {currentQuestion?.type === 'multi' && !hasAnswered && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '5px' }}>💡 點擊選取多個答案，完成後點擊下方送出</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <p style={{ color: '#f1c40f', fontSize: '1rem', marginBottom: '5px', fontWeight: 'bold' }}>💡 點擊選取多個答案，完成後點擊下方送出</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 {(currentQuestion?.options || []).map((opt: any) => {
                   const isSelected = multiSelected.includes(opt.id);
                   return (
-                    <button key={opt.id} onClick={() => toggleMultiSelect(opt.id)} style={{ padding: '1rem', fontSize: '1.1rem', color: '#fff', background: isSelected ? 'rgba(52, 152, 219, 0.5)' : 'rgba(255,255,255,0.1)', borderRadius: '10px', border: isSelected ? '2px solid #3498db' : '2px solid transparent', borderLeft: `6px solid ${opt.color}`, cursor: 'pointer', transition: 'all 0.2s' }}>{isSelected && '✔️ '} {opt.text}</button>
+                    <button key={opt.id} onClick={() => toggleMultiSelect(opt.id)} style={{ padding: '1.2rem', fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', background: isSelected ? 'rgba(52, 152, 219, 0.6)' : 'rgba(30, 40, 60, 0.8)', borderRadius: '12px', border: isSelected ? '2px solid #3498db' : '1px solid rgba(255,255,255,0.1)', borderLeft: `8px solid ${opt.color}`, cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>{isSelected && '✔️ '} {opt.text}</button>
                   );
                 })}
               </div>
-              <button className="btn-summon" onClick={handleMultiSubmit} disabled={multiSelected.length === 0} style={{ marginTop: '10px', background: multiSelected.length > 0 ? '#2ecc71' : '#7f8c8d' }}>
+              <button className="btn-summon" onClick={handleMultiSubmit} disabled={multiSelected.length === 0} style={{ marginTop: '15px', background: multiSelected.length > 0 ? 'linear-gradient(90deg, #2ecc71, #27ae60)' : '#7f8c8d' }}>
                 {multiSelected.length > 0 ? '確認送出解答！' : '請至少選擇一個...'}
               </button>
             </div>
           )}
 
           {currentQuestion?.type === 'order' && !hasAnswered && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '5px' }}>💡 點擊右側按鈕上下移動，由上而下排出正確順序！</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ color: '#f1c40f', fontSize: '1rem', marginBottom: '5px', fontWeight: 'bold' }}>💡 點擊右側按鈕上下移動，由上而下排出正確順序！</p>
               {orderState.map((opt, idx) => (
-                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '10px', borderLeft: `6px solid ${opt.color}` }}>
-                  <span style={{ color: '#f1c40f', fontWeight: '900', marginRight: '15px', fontSize: '1.3rem', width: '25px' }}>{idx + 1}.</span>
-                  <span style={{ color: '#fff', flex: 1, fontSize: '1.1rem', textAlign: 'left' }}>{opt.text}</span>
-                  <div style={{ display: 'flex', gap: '5px' }}>
-                    <button onClick={() => moveOrderUp(idx)} disabled={idx === 0} style={{ padding:'8px 12px', background:'#3498db', border:'none', borderRadius:'5px', cursor: idx===0?'not-allowed':'pointer', opacity: idx===0?0.3:1, fontSize: '1.2rem' }}>⬆️</button>
-                    <button onClick={() => moveOrderDown(idx)} disabled={idx === orderState.length - 1} style={{ padding:'8px 12px', background:'#e74c3c', border:'none', borderRadius:'5px', cursor: idx===orderState.length-1?'not-allowed':'pointer', opacity: idx===orderState.length-1?0.3:1, fontSize: '1.2rem' }}>⬇️</button>
+                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(30, 40, 60, 0.8)', padding: '12px', borderRadius: '12px', borderLeft: `8px solid ${opt.color}`, boxShadow: '0 4px 8px rgba(0,0,0,0.3)' }}>
+                  <span style={{ color: '#f1c40f', fontWeight: '900', marginRight: '15px', fontSize: '1.4rem', width: '30px' }}>{idx + 1}.</span>
+                  <span style={{ color: '#fff', flex: 1, fontSize: '1.2rem', textAlign: 'left', fontWeight: 'bold' }}>{opt.text}</span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => moveOrderUp(idx)} disabled={idx === 0} style={{ padding:'10px 15px', background:'#3498db', border:'none', borderRadius:'8px', cursor: idx===0?'not-allowed':'pointer', opacity: idx===0?0.3:1, fontSize: '1.2rem', boxShadow: '0 4px 0 #2980b9' }}>⬆️</button>
+                    <button onClick={() => moveOrderDown(idx)} disabled={idx === orderState.length - 1} style={{ padding:'10px 15px', background:'#e74c3c', border:'none', borderRadius:'8px', cursor: idx===orderState.length-1?'not-allowed':'pointer', opacity: idx===orderState.length-1?0.3:1, fontSize: '1.2rem', boxShadow: '0 4px 0 #c0392b' }}>⬇️</button>
                   </div>
                 </div>
               ))}
-              <button className="btn-summon" onClick={handleOrderSubmit} style={{ marginTop: '15px', background: '#2ecc71' }}>確認排序並送出！</button>
+              <button className="btn-summon" onClick={handleOrderSubmit} style={{ marginTop: '20px', background: 'linear-gradient(90deg, #2ecc71, #27ae60)' }}>確認排序並送出！</button>
             </div>
           )}
 
           {currentQuestion?.type === 'match' && !hasAnswered && (
             <div>
-              <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px' }}>💡 點擊上方魔靈，再點下方圖片來配對</p>
+              <p style={{ color: '#f1c40f', fontSize: '1rem', marginBottom: '15px', fontWeight: 'bold' }}>💡 點擊上方魔靈，再點下方圖片來配對</p>
               <div className="match-grid">
                 {(currentQuestion?.topItems || []).map((item: any) => {
                   const isActive = activeTopId === item.id; const isMatched = Boolean(userMatches[item.id]); const itemColor = topColors[item.id] || '#fff';
                   return (
-                    <div key={item.id} onClick={() => handleTopClick(item.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive || isMatched ? itemColor : 'transparent' }}>
-                      <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" /> <p>{item.name}</p> {isMatched && <div className="match-badge" style={{ background: itemColor }}>✓</div>}
+                    <div key={item.id} onClick={() => handleTopClick(item.id)} className={`match-item ${isActive ? 'active' : ''}`} style={{ borderColor: isActive || isMatched ? itemColor : 'transparent', background: 'rgba(30, 40, 60, 0.8)' }}>
+                      <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" /> <p style={{ fontWeight: 'bold' }}>{item.name}</p> {isMatched && <div className="match-badge" style={{ background: itemColor }}>✓</div>}
                     </div>
                   );
                 })}
@@ -385,82 +393,82 @@ function PlayerApp() {
                 {(currentQuestion?.bottomItems || []).map((item: any) => {
                   let matchedTopId = null; for (const k in userMatches) { if (userMatches[k] === item.id) matchedTopId = k; }
                   return (
-                    <div key={item.id} onClick={() => handleBottomClick(item.id)} className="match-item" style={{ borderColor: matchedTopId ? topColors[matchedTopId] : 'transparent' }}>
+                    <div key={item.id} onClick={() => handleBottomClick(item.id)} className="match-item" style={{ borderColor: matchedTopId ? topColors[matchedTopId] : 'transparent', background: 'rgba(30, 40, 60, 0.8)' }}>
                       <img src={item.img} alt="bottom" referrerPolicy="no-referrer" crossOrigin="anonymous" /> {matchedTopId && <div className="match-badge" style={{ background: topColors[matchedTopId] || '#fff' }}>✓</div>}
                     </div>
                   );
                 })}
               </div>
-              <button className="btn-summon" onClick={handleMatchSubmit} disabled={Object.keys(userMatches).length !== currentQuestion?.topItems?.length} style={{ marginTop: '10px' }}>確認送出配對！</button>
+              <button className="btn-summon" onClick={handleMatchSubmit} disabled={Object.keys(userMatches).length !== currentQuestion?.topItems?.length} style={{ marginTop: '20px', background: Object.keys(userMatches).length !== currentQuestion?.topItems?.length ? '#7f8c8d' : 'linear-gradient(90deg, #3498db, #2980b9)' }}>確認送出配對！</button>
             </div>
           )}
         </div>
       )}
 
       {isJoined && leaderboard && !reviewData && !podiumData && (
-         <div className="game-panel" style={{ paddingBottom: '2rem' }}>
-           <h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2>
+         <div className="game-panel" style={{ width: '95%', maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
+           <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '2rem', textShadow: '0 0 10px rgba(241,196,15,0.8)' }}>🏆 排名結算</h2>
            <LeaderboardView data={leaderboard} />
          </div>
       )}
 
       {isJoined && reviewData && (
-        <div className="game-panel" style={{ paddingBottom: '2rem' }}>
-          <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
+        <div className="game-panel" style={{ width: '95%', maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
+          <h2 style={{ color: '#3498db', fontSize: '2rem', marginBottom: '1.5rem', textShadow: '0 0 10px rgba(52, 152, 219, 0.8)' }}>正確答案</h2>
           
           {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
-             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '4px solid #2ecc71', boxShadow: '0 0 20px rgba(46, 204, 113, 0.5)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                    <img src={reviewData.question.type === 'img_choice' ? (reviewData.question.answerImg || reviewData.question.guessImg) : reviewData.question.guessImg} alt="answer clear" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: reviewData.question.type === 'guess' ? 'cover' : 'contain' }} />
                 </div>
              </div>
           )}
 
           {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                {reviewData.question.options.map((opt: any) => {
                  const isC = reviewData.question.type === 'multi' ? reviewData.question.correctAnswers.includes(opt.id) : opt.id === reviewData.question.correctAnswer;
-                 return (<div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isC ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isC ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}><span style={{ color: isC ? '#2ecc71' : '#fff' }}>{isC && '✔️ '} {opt.text}</span><span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span></div>);
+                 return (<div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1.2rem', background: isC ? 'rgba(46, 204, 113, 0.25)' : 'rgba(30, 40, 60, 0.5)', border: isC ? '2px solid #2ecc71' : '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold' }}><span style={{ color: isC ? '#2ecc71' : '#fff' }}>{isC && '✔️ '} {opt.text}</span><span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span></div>);
                })}
              </div>
           )}
 
           {reviewData.question.type === 'order' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold' }}>🎯 正確排序</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ color: '#2ecc71', fontSize: '1.2rem', marginBottom: '10px', fontWeight: 'bold', textAlign: 'center' }}>🎯 正確排序</p>
               {(reviewData.question.options || []).map((opt: any, idx: number) => (
-                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                   <span style={{ color: '#2ecc71', fontWeight: '900', marginRight: '15px', fontSize: '1.3rem', width: '25px' }}>{idx + 1}.</span>
-                   <span style={{ color: '#fff', flex: 1, fontSize: '1.1rem', textAlign: 'left' }}>{opt.text}</span>
+                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(46, 204, 113, 0.15)', padding: '12px', borderRadius: '12px', border: '1px solid #2ecc71' }}>
+                   <span style={{ color: '#2ecc71', fontWeight: '900', marginRight: '15px', fontSize: '1.4rem', width: '30px' }}>{idx + 1}.</span>
+                   <span style={{ color: '#fff', flex: 1, fontSize: '1.2rem', textAlign: 'left', fontWeight: 'bold' }}>{opt.text}</span>
                 </div>
               ))}
             </div>
           )}
 
           {reviewData.question.type === 'tf' && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000', margin: '1rem auto' }}>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '120px', height: '120px', fontSize: '5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? 'linear-gradient(145deg, #00e673, #00b359)' : 'linear-gradient(145deg, #ff4d4d, #e60000)', borderRadius: '25px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 10px 0 #008040, 0 15px 20px rgba(0,0,0,0.4)' : '0 10px 0 #b30000, 0 15px 20px rgba(0,0,0,0.4)', margin: '1.5rem auto' }}>
                   {reviewData.question.correctAnswer}
                 </div>
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                  <span style={{color:'#00cc66'}}>O : {reviewData.stats['O'] || 0}人</span>
-                  <span style={{color:'#ff3333'}}>X : {reviewData.stats['X'] || 0}人</span>
+                <div style={{ marginTop: '1rem', display: 'flex', gap: '30px', fontSize: '1.4rem', fontWeight: '900' }}>
+                  <span style={{color:'#00e673', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>O : {reviewData.stats['O'] || 0}人</span>
+                  <span style={{color:'#ff4d4d', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>X : {reviewData.stats['X'] || 0}人</span>
                 </div>
              </div>
           )}
           {reviewData.question.type === 'match' && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-               <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '10px', fontWeight: 'bold' }}>🎯 正確配對</p>
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+               <p style={{ color: '#2ecc71', fontSize: '1.2rem', marginBottom: '10px', fontWeight: 'bold', textAlign: 'center' }}>🎯 正確配對</p>
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                  {(reviewData.question.topItems || []).map((top: any) => {
                    const correctBottomId = reviewData.question.correctMatches[top.id];
                    const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
                    return (
-                     <div key={top.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                        <img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
-                        <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#fff', textAlign: 'center' }}>{top.name}</p>
-                        <span style={{ fontSize: '1.2rem', margin: '5px 0' }}>⬇️</span>
-                        <img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '5px' }} />
+                     <div key={top.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(46, 204, 113, 0.15)', padding: '15px', borderRadius: '15px', border: '1px solid #2ecc71', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
+                        <img src={top.img} alt="top" referrerPolicy="no-referrer" style={{ width: '80px', height: '80px', objectFit: 'contain', background: '#000', borderRadius: '10px', border: '2px solid rgba(255,255,255,0.2)' }} />
+                        <p style={{ fontSize: '1rem', marginTop: '8px', color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>{top.name}</p>
+                        <span style={{ fontSize: '1.5rem', margin: '8px 0', color: '#2ecc71' }}>⬇️</span>
+                        <img src={bottomItem?.img} alt="bottom" referrerPolicy="no-referrer" style={{ width: '80px', height: '80px', objectFit: 'contain', background: '#000', borderRadius: '10px', border: '2px solid rgba(255,255,255,0.2)' }} />
                      </div>
                    );
                  })}
@@ -471,15 +479,15 @@ function PlayerApp() {
       )}
 
       {isJoined && podiumData && (
-        <div className="game-panel" style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
+        <div className="game-panel" style={{ width: '95%', maxWidth: '600px', margin: '0 auto', animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
-            <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-            {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
-            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
-            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
+            <h2 style={{ color: '#FFD700', fontSize: '3rem', marginBottom: '2.5rem', textShadow: '0 0 20px rgba(255,215,0,0.9), 2px 2px 4px rgba(0,0,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
+            {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.4rem'}}>({podiumData[0].score}分)</span></h3>}
+            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1.1rem'}}>({podiumData[1]?.score}分)</span></h4>}
+            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'1rem'}}>({podiumData[2]?.score}分)</span></h4>}
           </div>
-          <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 結束並返回大廳</button>
+          <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: 'linear-gradient(90deg, #3498db, #2980b9)', marginTop: '40px', position: 'relative', zIndex: 10, fontSize: '1.2rem', padding: '15px 30px' }}>🏠 結束並返回大廳</button>
         </div>
       )}
     </PageLayout>
@@ -487,7 +495,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 專屬管理端介面 (純 Supabase Realtime 廣播端)
+// 👑 專屬管理端介面 (純大螢幕 PC 投影最佳化)
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -532,7 +540,6 @@ function AdminApp() {
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [hostingPin, podiumData]);
 
-  // 房主的主計時器
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (currentQuestion && timeLeft > 0 && !leaderboard && !reviewData && !podiumData) {
@@ -541,27 +548,24 @@ function AdminApp() {
     return () => clearTimeout(timerId);
   }, [currentQuestion, timeLeft, leaderboard, reviewData, podiumData]);
 
-  // 讀取題庫包 (從 Supabase)
   const fetchQuizzes = async (user: string) => {
     const { data, error } = await supabase.from('quiz_packs').select('*').eq('author', user);
     if (!error && data) setQuizPacks(data);
   };
 
-  // 模擬簡單的帳號系統 (為了維持無後端，直接在 quiz_packs 的 author 隔離資料)
   const handleAuth = async () => {
     if(!username || !password) return alert('請填寫帳號密碼');
     setAdminUser(username);
     fetchQuizzes(username);
   };
 
-  // 🚀 開房邏輯：利用隨機 6 碼與 Supabase Broadcast 建立通訊頻道
   const handleHostGame = (pack: any) => {
     const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
     setHostingPin(generatedPin);
     setHostingUrl(`${window.location.origin}/?pin=${generatedPin}`);
     setRoomTitle(pack.title || DEFAULT_TITLE);
     setRoomBg(pack.backgroundImg || DEFAULT_BG);
-    setEditingPack(pack); // 保存當前遊戲的題庫包數據
+    setEditingPack(pack); 
     setCurrentQIndex(0);
 
     const hostChannel = supabase.channel(`room_${generatedPin}`);
@@ -576,55 +580,35 @@ function AdminApp() {
         setPlayers(list);
       })
       .on('broadcast', { event: 'player_joined' }, () => {
-        // 當有玩家加入，廣播最新的房間標題與背景
-        hostChannel.send({
-          type: 'broadcast',
-          event: 'room_info',
-          payload: { title: pack.title, backgroundImg: pack.backgroundImg }
-        });
+        hostChannel.send({ type: 'broadcast', event: 'room_info', payload: { title: pack.title, backgroundImg: pack.backgroundImg } });
       });
 
     hostChannel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        unlockAudio();
-      }
+      if (status === 'SUBSCRIBED') { unlockAudio(); }
     });
 
     setChannel(hostChannel);
   };
 
-  // 發送下一題
   const sendNextQuestion = () => {
     if (!editingPack || !editingPack.questions || editingPack.questions.length <= currentQIndex) return;
     
     const q = editingPack.questions[currentQIndex];
-    const qPayload = {
-      ...q,
-      currentQIndex: currentQIndex + 1,
-      totalQuestions: editingPack.questions.length
-    };
+    const qPayload = { ...q, currentQIndex: currentQIndex + 1, totalQuestions: editingPack.questions.length };
 
-    setCurrentQuestion(qPayload);
-    setTimeLeft(q.timeLimit || 15);
+    setCurrentQuestion(qPayload); setTimeLeft(q.timeLimit || 15);
     setLeaderboard(null); setReviewData(null); setPodiumData(null);
 
-    channel.send({
-      type: 'broadcast',
-      event: 'receive_question',
-      payload: qPayload
-    });
+    channel.send({ type: 'broadcast', event: 'receive_question', payload: qPayload });
   };
 
-  // 📊 當前排名結算
   const showLeaderboard = () => {
     const sorted = [...players].sort((a, b) => b.score - a.score);
     setLeaderboard(sorted);
     channel.send({ type: 'broadcast', event: 'leaderboard_updated', payload: sorted });
   };
 
-  // 🔍 公佈答案與統計
   const showReviewAnswer = () => {
-    // 統計當前各選項人數 (這邊做隨機分布模擬或簡單統計)
     const stats: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, O: 0, X: 0 };
     players.forEach(() => {
       const opts = ['A', 'B', 'C', 'D'];
@@ -633,25 +617,14 @@ function AdminApp() {
     });
 
     const hasNext = currentQIndex + 1 < (editingPack?.questions?.length || 0);
-    const reviewPayload = {
-      question: currentQuestion,
-      stats,
-      hasNextQuestion: hasNext
-    };
+    const reviewPayload = { question: currentQuestion, stats, hasNextQuestion: hasNext };
 
-    setReviewData(reviewPayload);
-    setLeaderboard(null);
+    setReviewData(reviewPayload); setLeaderboard(null);
 
-    channel.send({
-      type: 'broadcast',
-      event: 'reveal_answer',
-      payload: reviewPayload
-    });
-
+    channel.send({ type: 'broadcast', event: 'reveal_answer', payload: reviewPayload });
     setCurrentQIndex(currentQIndex + 1);
   };
 
-  // 🏆 揭曉最終榮耀
   const showFinalPodium = () => {
     const top3 = [...players].sort((a, b) => b.score - a.score).slice(0, 3);
     setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null);
@@ -668,24 +641,11 @@ function AdminApp() {
   
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫名稱！');
-    const payload = { 
-      title: editingPack.title, 
-      author: adminUser!, 
-      background_img: editingPack.backgroundImg, 
-      questions: editingPack.questions 
-    };
-
+    const payload = { title: editingPack.title, author: adminUser!, background_img: editingPack.backgroundImg, questions: editingPack.questions };
     let error;
-    if (editingPack.id) {
-      const { error: err } = await supabase.from('quiz_packs').update(payload).eq('id', editingPack.id);
-      error = err;
-    } else {
-      const { error: err } = await supabase.from('quiz_packs').insert([payload]);
-      error = err;
-    }
-
-    if (!error) { alert('💾 儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); }
-    else { alert('儲存失敗'); }
+    if (editingPack.id) { const { error: err } = await supabase.from('quiz_packs').update(payload).eq('id', editingPack.id); error = err; } 
+    else { const { error: err } = await supabase.from('quiz_packs').insert([payload]); error = err; }
+    if (!error) { alert('💾 儲存成功！'); setEditingPack(null); fetchQuizzes(adminUser!); } else { alert('儲存失敗'); }
   };
 
   const handleImageUpload = (index: number, field: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -709,31 +669,19 @@ function AdminApp() {
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order' | 'img_choice';
     setQType(type);
-    if (type === 'tf') setNewTime(5); 
-    else if (type === 'match' || type === 'order') setNewTime(30);
-    else if (type === 'guess') setNewTime(12);
-    else if (type === 'img_choice') setNewTime(15);
-    else setNewTime(10);
+    if (type === 'tf') setNewTime(5); else if (type === 'match' || type === 'order') setNewTime(30); else if (type === 'guess') setNewTime(12); else if (type === 'img_choice') setNewTime(15); else setNewTime(10);
   };
 
-  const toggleMultiAnsEditor = (val: string) => {
-    setNewMultiAns(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
-  };
+  const toggleMultiAnsEditor = (val: string) => { setNewMultiAns(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]); };
 
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id); setQType(q.type); setNewQText(q.text); setNewTime(q.timeLimit);
     if (q.type === 'choice' || q.type === 'multi' || q.type === 'guess' || q.type === 'order' || q.type === 'img_choice') {
-      setNewOptA(q.options[0]?.text || ''); setNewOptB(q.options[1]?.text || '');
-      setNewOptC(q.options[2]?.text || ''); setNewOptD(q.options[3]?.text || '');
+      setNewOptA(q.options[0]?.text || ''); setNewOptB(q.options[1]?.text || ''); setNewOptC(q.options[2]?.text || ''); setNewOptD(q.options[3]?.text || '');
       if (q.type === 'choice' || q.type === 'guess' || q.type === 'img_choice') setNewAns(q.correctAnswer || 'A');
       if (q.type === 'multi') setNewMultiAns(q.correctAnswers || []);
-      if (q.type === 'guess' || q.type === 'img_choice') {
-        setNewGuessImg(q.guessImg || '');
-        if (q.type === 'img_choice') setNewAnswerImg(q.answerImg || ''); 
-      }
-    } else if (q.type === 'tf') {
-      setNewTfAns(q.correctAnswer || 'O');
-    } else if (q.type === 'match') {
+      if (q.type === 'guess' || q.type === 'img_choice') { setNewGuessImg(q.guessImg || ''); if (q.type === 'img_choice') setNewAnswerImg(q.answerImg || ''); }
+    } else if (q.type === 'tf') { setNewTfAns(q.correctAnswer || 'O'); } else if (q.type === 'match') {
       const pairs = [{ tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }];
       q.topItems?.forEach((t: any, i: number) => { pairs[i].tName = t.name; pairs[i].tImg = t.img; pairs[i].bImg = q.bottomItems?.find((b:any) => b.id === q.correctMatches[t.id])?.img || ''; });
       setMatchPairs(pairs);
@@ -749,7 +697,7 @@ function AdminApp() {
   };
 
   const handleSaveQuestion = () => {
-    if (!newQText.trim()) return alert('請填寫題目敘述！');
+    if (!newQText.trim()) return alert('請填寫題目敘述文字！');
     let newQ: any = { id: editingQuestionId || Date.now(), type: qType, text: newQText, timeLimit: newTime };
     
     if (qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order' || qType === 'img_choice') {
@@ -767,19 +715,12 @@ function AdminApp() {
       if (qType === 'choice' || qType === 'guess' || qType === 'img_choice') {
         if (!options.find(o => o.id === newAns)) return alert(`您設定的正解不存在！`);
         newQ.correctAnswer = newAns;
-        if (qType === 'guess' || qType === 'img_choice') {
-           newQ.guessImg = newGuessImg;
-           if (qType === 'img_choice') newQ.answerImg = newAnswerImg; 
-        }
+        if (qType === 'guess' || qType === 'img_choice') { newQ.guessImg = newGuessImg; if (qType === 'img_choice') newQ.answerImg = newAnswerImg; }
       } else if (qType === 'multi') {
         if (newMultiAns.length === 0) return alert('多選題請至少勾選一個正確解答！');
         newQ.correctAnswers = newMultiAns;
-      } else if (qType === 'order') {
-        newQ.correctAnswer = options.map(o => o.id).join(',');
-      }
-    } else if (qType === 'tf') {
-      newQ.correctAnswer = newTfAns;
-    } else {
+      } else if (qType === 'order') { newQ.correctAnswer = options.map(o => o.id).join(','); }
+    } else if (qType === 'tf') { newQ.correctAnswer = newTfAns; } else {
       if (!matchPairs.every(p => p.tName && p.tImg && p.bImg)) return alert('請確保 4 組配對資料完整！');
       newQ.topItems = matchPairs.map((p, i) => ({ id: `T${i+1}`, name: p.tName, img: p.tImg }));
       newQ.bottomItems = matchPairs.map((p, i) => ({ id: `B${i+1}`, img: p.bImg }));
@@ -796,13 +737,9 @@ function AdminApp() {
 
   const handleReturnToDashboard = () => {
     if (channel) channel.unsubscribe();
-    sfx.victory.pause(); sfx.victory.currentTime = 0;
-    sfx.cheer.pause(); sfx.cheer.currentTime = 0;
-    sfx.bgm.pause(); sfx.bgm.currentTime = 0;
-    setHostingPin(null); setHostingUrl(null); setPlayers([]);
-    setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
-    setRoomTitle(DEFAULT_TITLE); setRoomBg(DEFAULT_BG);
-    fetchQuizzes(adminUser!);
+    sfx.victory.pause(); sfx.victory.currentTime = 0; sfx.cheer.pause(); sfx.cheer.currentTime = 0; sfx.bgm.pause(); sfx.bgm.currentTime = 0;
+    setHostingPin(null); setHostingUrl(null); setPlayers([]); setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
+    setRoomTitle(DEFAULT_TITLE); setRoomBg(DEFAULT_BG); fetchQuizzes(adminUser!);
   };
 
   let displayTitle = '創作者儀表板';
@@ -818,123 +755,124 @@ function AdminApp() {
         </h2>
         <input type="text" placeholder="請輸入帳號" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" style={{ textAlign: 'center' }} />
         <input type="password" placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} className="game-input" style={{ textAlign: 'center' }} />
-        <button className="btn-summon" onClick={handleAuth} style={{ marginTop: '10px', background: 'linear-gradient(90deg, #f39c12, #e67e22)' }}>
-          進入系統
-        </button>
+        <button className="btn-summon" onClick={handleAuth} style={{ marginTop: '10px', background: 'linear-gradient(90deg, #f39c12, #e67e22)' }}>進入系統</button>
       </div>
     </PageLayout>
   );
 
+  // 👑 【核心修改區：主持人控場後台 UI 寬度徹底放大至 1400px，專為投影設計】
   if (hostingPin) {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '2rem' }}>
+        <div className="game-panel" style={{ width: '95%', maxWidth: '1400px', margin: '0 auto', paddingBottom: '3rem', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
           {!isGameStarted ? (
             <>
-              <h2 style={{ color: '#e74c3c' }}>👑 主持人控場中心</h2>
-              <h3 style={{ color: '#f1c40f', fontSize: '2rem' }}>房號: {hostingPin}</h3>
-              <p style={{ color: '#2ecc71', margin: '10px 0' }}>玩家加入連結: <br/><a href={hostingUrl!} target="_blank" rel="noreferrer" style={{color: '#3498db'}}>{hostingUrl}</a></p>
-              <p>目前進場: {players.length} 人</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', justifyContent: 'center', margin: '10px 0' }}>
-                {players.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.1)', padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', color: '#FFD700' }}>{p.username}</span>)}
+              <h2 style={{ color: '#e74c3c', fontSize: '2.5rem', marginBottom: '20px' }}>👑 主持人控場中心</h2>
+              <h3 style={{ color: '#f1c40f', fontSize: '4.5rem', textShadow: '0 0 20px rgba(241,196,15,0.6)' }}>房號: {hostingPin}</h3>
+              <p style={{ color: '#2ecc71', margin: '20px 0', fontSize: '1.6rem' }}>玩家加入連結: <br/><span style={{color: '#3498db', textDecoration: 'underline', fontSize: '2rem'}}>{hostingUrl}</span></p>
+              <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>目前進場: <span style={{ color: '#f1c40f', fontSize: '2.5rem' }}>{players.length}</span> 人</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', margin: '25px 0', maxHeight: '250px', overflowY: 'auto', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px' }}>
+                {players.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.15)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)' }}>{p.username}</span>)}
               </div>
-              <button className="btn-summon" onClick={sendNextQuestion}>▶️ 開始遊戲</button>
+              <button className="btn-summon" onClick={sendNextQuestion} style={{ fontSize: '2rem', padding: '20px 60px', background: 'linear-gradient(90deg, #2ecc71, #27ae60)' }}>▶️ 正式開始遊戲</button>
             </>
           ) : (
             <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#bdc3c7', fontSize: '0.9rem', marginBottom: '15px', borderBottom: '1px solid #444', paddingBottom: '10px' }}>
-                <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>👑 主持人模式</span>
-                <span>房間: {hostingPin} | 進場: {players.length} 人</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#bdc3c7', fontSize: '1.4rem', marginBottom: '25px', borderBottom: '2px solid #444', paddingBottom: '15px' }}>
+                <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>👑 主持人大螢幕模式</span>
+                <span>房間: <strong style={{color:'#fff'}}>{hostingPin}</strong> | 總進場: <strong style={{color:'#fff'}}>{players.length}</strong> 人</span>
               </div>
 
               {currentQuestion && !leaderboard && !reviewData && !podiumData && (
                 <div className="question-transition">
-                  <div style={{ position: 'relative', width: '100%', height: '24px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,215,0,0.5)' }}>
+                  <div style={{ position: 'relative', width: '100%', height: '35px', background: 'rgba(255,255,255,0.1)', borderRadius: '18px', overflow: 'hidden', marginBottom: '2rem', border: '1px solid rgba(255,215,0,0.5)' }}>
                     <div style={{ height: '100%', background: 'linear-gradient(90deg, #f39c12, #f1c40f)', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s' }} />
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: '900', fontSize: '0.9rem', textShadow: '1px 1px 2px #000' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#fff', fontWeight: '900', fontSize: '1.4rem', textShadow: '1px 1px 2px #000' }}>
                       題目進度: {currentQuestion?.currentQIndex || 1} / {currentQuestion?.totalQuestions || 1}
                     </div>
                   </div>
 
-                  <h3 style={{ color: '#34db98', marginBottom: '10px' }}>⏳ 題目作答中... (已答題: {players.filter(p => p.hasAnswered).length} / {players.length} 人)</h3>
+                  <h3 style={{ color: '#34db98', marginBottom: '20px', fontSize: '2rem' }}>⏳ 題目作答中... (已答題: <span style={{color:'#fff'}}>{players.filter(p => p.hasAnswered).length} / {players.length}</span> 人)</h3>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                    <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '10px 24px', borderRadius: '12px', fontSize: '1.8rem', fontWeight: '900', boxShadow: '0 4px 8px rgba(0,0,0,0.4)', whiteSpace: 'nowrap' }}>
                       {qTypeLabels[currentQuestion.type] || '未知'}
                     </span>
-                    <h2 style={{ color: '#FFF', fontSize: '1.4rem', margin: 0, textAlign: 'left' }}>{currentQuestion.text}</h2>
+                    <h2 style={{ color: '#FFF', fontSize: '2.8rem', margin: 0, textAlign: 'left', lineHeight: '1.3' }}>{currentQuestion.text}</h2>
                   </div>
                   
+                  {/* 👑 【大螢幕專屬：巨大化題目圖 (MaxWidth 700px)】 */}
                   {(currentQuestion.type === 'guess' || currentQuestion.type === 'img_choice') && (
-                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                        <div style={{ width: '100%', maxWidth: '350px', height: '220px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #f1c40f', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '35px' }}>
+                        <div style={{ width: '100%', maxWidth: '700px', height: '450px', borderRadius: '25px', overflow: 'hidden', border: '5px solid #f1c40f', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.6)' }}>
                            <img src={currentQuestion.guessImg} alt="question image" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: currentQuestion.type === 'guess' ? 'cover' : 'contain', width: currentQuestion.type === 'guess' ? '100%' : 'auto', filter: currentQuestion.type === 'guess' ? `blur(${(timeLeft / currentQuestion.timeLimit) * 25}px) grayscale(${(timeLeft / currentQuestion.timeLimit) * 100}%)` : 'none', transition: currentQuestion.type === 'guess' ? 'filter 1s linear' : 'none' }} />
                         </div>
                      </div>
                   )}
 
+                  {/* 👑 【大螢幕專屬：巨大化選項方塊 (Gap 20px, Font 1.8rem)】 */}
                   {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order' || currentQuestion.type === 'img_choice') && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.8 }}>
-                      {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', borderLeft: `5px solid ${opt.color}`, color: '#fff' }}>{opt.text}</div>))}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', opacity: 0.95 }}>
+                      {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '25px', fontSize: '1.8rem', fontWeight: 'bold', background: 'rgba(255,255,255,0.1)', borderRadius: '15px', borderLeft: `12px solid ${opt.color}`, color: '#fff', boxShadow: '0 6px 15px rgba(0,0,0,0.3)', transition: 'transform 0.2s' }}>{opt.text}</div>))}
                     </div>
                   )}
                   {currentQuestion.type === 'tf' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', opacity: 0.9 }}>
-                      <div style={{ padding: '15px', background: '#00cc66', borderRadius: '10px', color: '#ffffff', textAlign:'center', fontSize:'2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 6px 0 #00994d' }}>O</div>
-                      <div style={{ padding: '15px', background: '#ff3333', borderRadius: '10px', color: '#ffffff', textAlign:'center', fontSize:'2.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 6px 0 #cc0000' }}>X</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', opacity: 0.95 }}>
+                      <div style={{ padding: '35px', background: 'linear-gradient(145deg, #00e673, #00b359)', borderRadius: '20px', color: '#ffffff', textAlign:'center', fontSize:'4.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 10px 0 #008040, 0 15px 20px rgba(0,0,0,0.4)', textShadow: '0 4px 8px rgba(0,0,0,0.3)' }}>O</div>
+                      <div style={{ padding: '35px', background: 'linear-gradient(145deg, #ff4d4d, #e60000)', borderRadius: '20px', color: '#ffffff', textAlign:'center', fontSize:'4.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 10px 0 #b30000, 0 15px 20px rgba(0,0,0,0.4)', textShadow: '0 4px 8px rgba(0,0,0,0.3)' }}>X</div>
                     </div>
                   )}
-                  <button className="btn-summon" onClick={showLeaderboard} style={{ background: '#9b59b6', marginTop: '20px' }}>📊 結算當前排名</button>
+                  <button className="btn-summon" onClick={showLeaderboard} style={{ background: 'linear-gradient(90deg, #9b59b6, #8e44ad)', marginTop: '40px', fontSize: '1.6rem', padding: '20px' }}>📊 結算當前排名</button>
                 </div>
               )}
               
               {leaderboard && !reviewData && !podiumData && (
-                <div><h2 style={{ color: '#FFD700', fontSize: '2rem', marginBottom: '1.5rem' }}>🏆 排名結算</h2><LeaderboardView data={leaderboard} />
-                <button className="btn-summon" onClick={showReviewAnswer} style={{ background: '#34495e', marginTop: '15px' }}>🔍 公佈答案</button></div>
+                <div><h2 style={{ color: '#FFD700', fontSize: '3rem', marginBottom: '2.5rem', textShadow: '0 0 15px rgba(241,196,15,0.5)' }}>🏆 排名結算</h2><LeaderboardView data={leaderboard} />
+                <button className="btn-summon" onClick={showReviewAnswer} style={{ background: 'linear-gradient(90deg, #34495e, #2c3e50)', marginTop: '30px', fontSize: '1.6rem', padding: '20px' }}>🔍 揭曉正確答案</button></div>
               )}
 
               {reviewData && (
                 <div>
-                  <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem' }}>正確答案</h2>
+                  <h2 style={{ color: '#3498db', fontSize: '2.8rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(52, 152, 219, 0.5)' }}>正確答案</h2>
 
                   {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
-                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
-                        <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '220px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.3)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '35px' }}>
+                        <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '300px', maxWidth: '600px', height: reviewData.question.type === 'img_choice' ? '400px' : '300px', borderRadius: '25px', overflow: 'hidden', border: '5px solid #2ecc71', boxShadow: '0 0 30px rgba(46, 204, 113, 0.6)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                            <img src={reviewData.question.type === 'img_choice' ? (reviewData.question.answerImg || reviewData.question.guessImg) : reviewData.question.guessImg} alt="answer clear" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: reviewData.question.type === 'guess' ? 'cover' : 'contain' }} />
                         </div>
                      </div>
                   )}
 
                   {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
-                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                        {reviewData.question.options.map((opt: any) => {
                          const isC = reviewData.question.type === 'multi' ? reviewData.question.correctAnswers.includes(opt.id) : opt.id === reviewData.question.correctAnswer;
-                         return (<div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isC ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255,255,255,0.05)', border: isC ? '2px solid #2ecc71' : '1px solid #444', borderRadius: '8px' }}><span style={{ color: isC ? '#2ecc71' : '#fff' }}>{isC && '✔️ '} {opt.text}</span><span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span></div>);
+                         return (<div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '2rem', background: isC ? 'rgba(46, 204, 113, 0.25)' : 'rgba(255,255,255,0.05)', border: isC ? '3px solid #2ecc71' : '1px solid rgba(255,255,255,0.1)', borderRadius: '15px', fontSize: '1.6rem', fontWeight: 'bold' }}><span style={{ color: isC ? '#2ecc71' : '#fff' }}>{isC && '✔️ '} {opt.text}</span><span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span></div>);
                        })}
                      </div>
                   )}
 
                   {reviewData.question.type === 'order' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold' }}>🎯 正確排序</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                      <p style={{ color: '#2ecc71', fontSize: '1.8rem', marginBottom: '15px', fontWeight: 'bold', textAlign: 'center' }}>🎯 正確排序</p>
                       {(reviewData.question.options || []).map((opt: any, idx: number) => (
-                        <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                           <span style={{ color: '#2ecc71', fontWeight: '900', marginRight: '15px', fontSize: '1.3rem', width: '25px' }}>{idx + 1}.</span>
-                           <span style={{ color: '#fff', flex: 1, fontSize: '1.1rem', textAlign: 'left' }}>{opt.text}</span>
+                        <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(46, 204, 113, 0.15)', padding: '20px', borderRadius: '15px', border: '2px solid #2ecc71' }}>
+                           <span style={{ color: '#2ecc71', fontWeight: '900', marginRight: '25px', fontSize: '2rem', width: '45px' }}>{idx + 1}.</span>
+                           <span style={{ color: '#fff', flex: 1, fontSize: '1.6rem', textAlign: 'left', fontWeight: 'bold' }}>{opt.text}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {reviewData.question.type === 'tf' && (
-                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? '#00cc66' : '#ff3333', borderRadius: '15px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 8px 0 #00994d' : '0 8px 0 #cc0000', margin: '1rem auto' }}>
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '200px', height: '200px', fontSize: '8rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? 'linear-gradient(145deg, #00e673, #00b359)' : 'linear-gradient(145deg, #ff4d4d, #e60000)', borderRadius: '35px', boxShadow: reviewData.question.correctAnswer === 'O' ? '0 15px 0 #008040' : '0 15px 0 #b30000', margin: '3rem auto' }}>
                           {reviewData.question.correctAnswer}
                         </div>
                      </div>
                   )}
-                  {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={sendNextQuestion} style={{ background: '#2ecc71', marginTop: '15px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={showFinalPodium} style={{ background: '#f1c40f', marginTop: '15px' }}>🏆 揭曉最終榮耀</button>}
+                  {reviewData.hasNextQuestion ? <button className="btn-summon" onClick={sendNextQuestion} style={{ background: 'linear-gradient(90deg, #2ecc71, #27ae60)', marginTop: '35px', fontSize: '1.8rem', padding: '20px' }}>▶️ 下一題</button> : <button className="btn-summon" onClick={showFinalPodium} style={{ background: 'linear-gradient(90deg, #f1c40f, #f39c12)', marginTop: '35px', fontSize: '1.8rem', padding: '20px' }}>🏆 揭曉最終榮耀</button>}
                 </div>
               )}
 
@@ -942,12 +880,12 @@ function AdminApp() {
                 <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content">
-                    <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-                    {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
-                    {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.7rem'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
-                    {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
+                    <h2 style={{ color: '#FFD700', fontSize: '4.5rem', marginBottom: '3rem', textShadow: '0 0 25px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
+                    {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '4rem', textShadow: '0 4px 8px rgba(0,0,0,0.8)'}}>🥇 {podiumData[0].username} <span style={{fontSize:'2rem'}}>({podiumData[0].score}分)</span></h3>}
+                    {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '3rem', textShadow: '0 3px 6px rgba(0,0,0,0.8)'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1.6rem'}}>({podiumData[1]?.score}分)</span></h4>}
+                    {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '2.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'1.3rem'}}>({podiumData[2]?.score}分)</span></h4>}
                   </div>
-                  <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: '#3498db', marginTop: '30px', position: 'relative', zIndex: 10 }}>🏠 結束並返回大廳</button>
+                  <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: 'linear-gradient(90deg, #3498db, #2980b9)', marginTop: '50px', position: 'relative', zIndex: 10, fontSize: '1.8rem', padding: '20px 40px' }}>🏠 結束並返回大廳</button>
                 </div>
               )}
             </>
@@ -960,18 +898,19 @@ function AdminApp() {
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
-        <div className="game-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <h2 style={{ color: '#FFD700' }}>✏️ 題庫編輯器</h2>
-            <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>返回</button>
+        {/* ✏️ 題庫編輯器也放寬至 1200px 方便 PC 舒適操作 */}
+        <div className="game-panel" style={{ width: '95%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '3rem', background: 'rgba(15, 20, 35, 0.95)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
+            <h2 style={{ color: '#FFD700', margin: 0 }}>✏️ 題庫編輯器</h2>
+            <button onClick={() => { setEditingPack(null); handleCancelEditQuestion(); }} style={{ padding: '0.6rem 1.2rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>返回列表</button>
           </div>
 
-          <input type="text" value={editingPack.title} onChange={(e) => setEditingPack({...editingPack, title: e.target.value})} placeholder="題庫包名稱" className="game-input" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f1c40f' }} />
+          <input type="text" value={editingPack.title} onChange={(e) => setEditingPack({...editingPack, title: e.target.value})} placeholder="題庫包名稱 (建議簡短吸睛)" className="game-input" style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#f1c40f', background: 'rgba(0,0,0,0.5)' }} />
 
-          <div style={{ marginBottom: '15px' }}>
-            <p style={{ color: '#3498db', fontSize: '0.85rem', marginBottom: '5px' }}>* 自訂遊戲背景圖 (建議尺寸 1920x1080 16:9，支援 JPG/PNG，限 1MB 內)</p>
-            <label style={{ width: '100%', height: '120px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #3498db', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-              {editingPack.backgroundImg ? <img src={editingPack.backgroundImg} alt="bg" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} /> : <span style={{fontSize: '1rem', color: '#3498db'}}>+ 選擇背景圖片 (未上傳則使用預設)</span>}
+          <div style={{ marginBottom: '20px' }}>
+            <p style={{ color: '#3498db', fontSize: '0.9rem', marginBottom: '8px', fontWeight: 'bold' }}>* 選擇自訂遊戲背景圖 (建議尺寸 1920x1080 16:9，支援 JPG/PNG，限 1MB 內)</p>
+            <label style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.4)', border: '2px dashed #3498db', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden', transition: 'border 0.3s' }}>
+              {editingPack.backgroundImg ? <img src={editingPack.backgroundImg} alt="bg" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} /> : <span style={{fontSize: '1.1rem', color: '#3498db', fontWeight: 'bold'}}>+ 點擊上傳背景圖 (未上傳則使用系統預設)</span>}
               <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
@@ -983,30 +922,30 @@ function AdminApp() {
             </label>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             {(editingPack.questions || []).map((q: any, idx: number) => {
               return (
-              <div key={q.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <span style={{ background: qTypeColors[q.type], padding: '3px 8px', borderRadius: '5px', fontSize: '0.8rem', marginRight: '10px', color: '#fff' }}>{qTypeLabels[q.type]}</span>
-                  <strong>Q{idx + 1}. {q.text}</strong>
+              <div key={q.id} style={{ background: 'rgba(255,255,255,0.08)', padding: '1.2rem', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `6px solid ${qTypeColors[q.type] || '#7f8c8d'}` }}>
+                <div style={{ flex: 1, paddingRight: '15px' }}>
+                  <span style={{ background: qTypeColors[q.type], padding: '4px 10px', borderRadius: '6px', fontSize: '0.85rem', marginRight: '10px', color: '#fff', fontWeight: 'bold' }}>{qTypeLabels[q.type]}</span>
+                  <strong style={{ fontSize: '1.1rem', color: '#fff' }}>Q{idx + 1}. {q.text}</strong>
                 </div>
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  <button onClick={() => handleEditQuestion(q)} style={{ background: '#f39c12', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>修改</button>
-                  <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer' }}>刪除</button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => handleEditQuestion(q)} style={{ background: 'linear-gradient(90deg, #f39c12, #e67e22)', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>修改</button>
+                  <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: 'linear-gradient(90deg, #e74c3c, #c0392b)', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>刪除</button>
                 </div>
               </div>
             )})}
           </div>
 
-          <div id="question-edit-form" style={{ background: editingQuestionId ? 'rgba(243, 156, 18, 0.15)' : 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '10px', marginTop: '2rem', border: editingQuestionId ? '2px solid #f39c12' : '1px dashed #7f8c8d' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-              <h3 style={{ color: editingQuestionId ? '#f39c12' : '#2ecc71', margin: 0 }}>{editingQuestionId ? '✏️ 修改題目' : '➕ 新增題目'}</h3>
-              {editingQuestionId && <button onClick={handleCancelEditQuestion} style={{ background: 'transparent', border: '1px solid #e74c3c', color: '#e74c3c', padding: '3px 8px', borderRadius: '5px' }}>取消修改</button>}
+          <div id="question-edit-form" style={{ background: editingQuestionId ? 'rgba(243, 156, 18, 0.15)' : 'rgba(0,0,0,0.6)', padding: '2rem', borderRadius: '15px', marginTop: '2.5rem', border: editingQuestionId ? '2px solid #f39c12' : '1px dashed #7f8c8d', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+              <h3 style={{ color: editingQuestionId ? '#f39c12' : '#2ecc71', margin: 0, fontSize: '1.4rem' }}>{editingQuestionId ? '✏️ 修改當前題目' : '➕ 新增一題'}</h3>
+              {editingQuestionId && <button onClick={handleCancelEditQuestion} style={{ background: 'transparent', border: '1px solid #e74c3c', color: '#e74c3c', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer' }}>取消修改</button>}
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <select value={qType} onChange={handleTypeChange} className="game-input" style={{ flex: 1 }}>
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+              <select value={qType} onChange={handleTypeChange} className="game-input" style={{ flex: 1, fontSize: '1.1rem' }}>
                 <option value="choice">單選題</option>
                 <option value="img_choice">看圖單選題</option>
                 <option value="tf">是非題 (O/X)</option>
@@ -1015,25 +954,28 @@ function AdminApp() {
                 <option value="order">排序題 (由上到下)</option>
                 <option value="match">圖片配對題</option>
               </select>
-              <input type="number" placeholder="秒數" value={newTime} onChange={(e) => setNewTime(Number(e.target.value))} className="game-input" style={{ width: '80px' }} />
+              <div style={{ position: 'relative', width: '120px' }}>
+                 <span style={{ position: 'absolute', top: '15px', right: '15px', color: '#bdc3c7' }}>秒</span>
+                 <input type="number" placeholder="秒數" value={newTime} onChange={(e) => setNewTime(Number(e.target.value))} className="game-input" style={{ width: '100%', paddingRight: '40px', fontSize: '1.1rem' }} />
+              </div>
             </div>
             
-            <input type="text" placeholder="請輸入題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" />
+            <input type="text" placeholder="請輸入完整題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" style={{ fontSize: '1.2rem', padding: '15px' }} />
 
             {(qType === 'guess' || qType === 'img_choice') && (
-              <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '15px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '30px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '5px' }}>* {qType === 'img_choice' ? '題目圖 (作答用)' : '請上傳題目圖'}</p>
-                  <label style={{ width: '150px', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #e84393', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-                    {newGuessImg ? <img src={newGuessImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#e84393'}}>+ 選擇圖片</span>}
+                  <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '8px', fontWeight: 'bold' }}>* {qType === 'img_choice' ? '作答提示圖 (必填)' : '請上傳題目原圖 (必填)'}</p>
+                  <label style={{ width: '180px', height: '180px', background: 'rgba(0,0,0,0.5)', border: '2px dashed #f1c40f', borderRadius: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                    {newGuessImg ? <img src={newGuessImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '1rem', color: '#f1c40f'}}>+ 選擇圖片</span>}
                     <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={handleGuessImageUpload} />
                   </label>
                 </div>
                 {qType === 'img_choice' && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <p style={{ color: '#2ecc71', fontSize: '0.85rem', marginBottom: '5px' }}>* 解答圖 (公佈用)</p>
-                    <label style={{ width: '150px', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px dashed #2ecc71', borderRadius: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-                      {newAnswerImg ? <img src={newAnswerImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#2ecc71'}}>+ 選擇圖片</span>}
+                    <p style={{ color: '#2ecc71', fontSize: '0.9rem', marginBottom: '8px', fontWeight: 'bold' }}>* 解答清晰圖 (公佈用, 必填)</p>
+                    <label style={{ width: '180px', height: '180px', background: 'rgba(0,0,0,0.5)', border: '2px dashed #2ecc71', borderRadius: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                      {newAnswerImg ? <img src={newAnswerImg} alt="預覽" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '1rem', color: '#2ecc71'}}>+ 選擇圖片</span>}
                       <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={handleAnswerImageUpload} />
                     </label>
                   </div>
@@ -1043,29 +985,29 @@ function AdminApp() {
 
             {(qType === 'choice' || qType === 'multi' || qType === 'guess' || qType === 'order' || qType === 'img_choice') && (
               <>
-                {qType === 'order' && <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>* 請依序(由上至下)在選項 A 到 D 填入正確順序，發送時系統會自動打亂讓玩家排列！</p>}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
-                  <input type="text" placeholder="選項 A (必填)" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                  <input type="text" placeholder="選項 B (必填)" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                  <input type="text" placeholder="選項 C (必填)" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
-                  <input type="text" placeholder="選項 D (必填)" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0 }} />
+                {qType === 'order' && <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '10px', background: 'rgba(241,196,15,0.1)', padding: '10px', borderRadius: '8px' }}>* 請依序(由上至下)在選項 A 到 D 填入正確順序，發送時系統會自動打亂讓玩家排列！</p>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <input type="text" placeholder="選項 A (必填)" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" style={{ marginBottom: 0, borderLeft: '5px solid #e53e3e' }} />
+                  <input type="text" placeholder="選項 B (必填)" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" style={{ marginBottom: 0, borderLeft: '5px solid #3182ce' }} />
+                  <input type="text" placeholder="選項 C (必填)" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" style={{ marginBottom: 0, borderLeft: '5px solid #d69e2e' }} />
+                  <input type="text" placeholder="選項 D (必填)" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" style={{ marginBottom: 0, borderLeft: '5px solid #805ad5' }} />
                 </div>
                 
                 {(qType === 'choice' || qType === 'guess' || qType === 'img_choice') && (
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ color: '#fff' }}>正確解答:</span>
-                    <select value={newAns} onChange={(e) => setNewAns(e.target.value)} className="game-input" style={{ width: '100px', marginBottom: 0 }}>
-                      <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                  <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px' }}>
+                    <span style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 'bold' }}>正確解答為:</span>
+                    <select value={newAns} onChange={(e) => setNewAns(e.target.value)} className="game-input" style={{ width: '120px', marginBottom: 0, padding: '8px' }}>
+                      <option value="A">選項 A</option><option value="B">選項 B</option><option value="C">選項 C</option><option value="D">選項 D</option>
                     </select>
                   </div>
                 )}
                 {qType === 'multi' && (
-                  <div style={{ marginTop: '10px' }}>
-                    <span style={{ color: '#fff', display: 'block', marginBottom: '5px' }}>勾選正確解答 (可複選):</span>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ marginTop: '15px', background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px' }}>
+                    <span style={{ color: '#fff', display: 'block', marginBottom: '10px', fontSize: '1.1rem', fontWeight: 'bold' }}>勾選正確解答 (可複選):</span>
+                    <div style={{ display: 'flex', gap: '20px' }}>
                       {['A', 'B', 'C', 'D'].map(opt => (
-                        <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#fff', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={newMultiAns.includes(opt)} onChange={() => toggleMultiAnsEditor(opt)} style={{ width: '20px', height: '20px' }} /> 選項 {opt}
+                        <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', cursor: 'pointer', fontSize: '1.1rem' }}>
+                          <input type="checkbox" checked={newMultiAns.includes(opt)} onChange={() => toggleMultiAnsEditor(opt)} style={{ width: '22px', height: '22px' }} /> 選項 {opt}
                         </label>
                       ))}
                     </div>
@@ -1075,27 +1017,27 @@ function AdminApp() {
             )}
 
             {qType === 'tf' && (
-              <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <span style={{ color: '#fff' }}>設定正確答案:</span>
-                <button onClick={() => setNewTfAns('O')} style={{ padding: '10px 25px', fontSize: '1.8rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', background: newTfAns === 'O' ? '#00cc66' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'O' ? '2px solid #fff' : 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: newTfAns === 'O' ? '0 4px 0 #00994d' : 'none' }}>O</button>
-                <button onClick={() => setNewTfAns('X')} style={{ padding: '10px 25px', fontSize: '1.8rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', background: newTfAns === 'X' ? '#ff3333' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'X' ? '2px solid #fff' : 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: newTfAns === 'X' ? '0 4px 0 #cc0000' : 'none' }}>X</button>
+              <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '10px' }}>
+                <span style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 'bold' }}>設定正確答案為:</span>
+                <button onClick={() => setNewTfAns('O')} style={{ padding: '15px 35px', fontSize: '2rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', background: newTfAns === 'O' ? 'linear-gradient(145deg, #00e673, #00b359)' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'O' ? '2px solid #fff' : 'none', borderRadius: '12px', cursor: 'pointer', boxShadow: newTfAns === 'O' ? '0 6px 0 #008040' : 'none' }}>O</button>
+                <button onClick={() => setNewTfAns('X')} style={{ padding: '15px 35px', fontSize: '2rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', background: newTfAns === 'X' ? 'linear-gradient(145deg, #ff4d4d, #e60000)' : 'rgba(255,255,255,0.1)', color: '#fff', border: newTfAns === 'X' ? '2px solid #fff' : 'none', borderRadius: '12px', cursor: 'pointer', boxShadow: newTfAns === 'X' ? '0 6px 0 #b30000' : 'none' }}>X</button>
               </div>
             )}
 
             {qType === 'match' && (
-              <div style={{ textAlign: 'left', marginTop: '10px' }}>
-                <p style={{ color: '#f1c40f', fontSize: '0.85rem', marginBottom: '10px' }}>* 請依照正確配對組合上傳。建議尺寸 1:1 (如 300x300 px)，單張限 300KB 內。</p>
+              <div style={{ textAlign: 'left', marginTop: '15px' }}>
+                <p style={{ color: '#f1c40f', fontSize: '0.9rem', marginBottom: '15px', background: 'rgba(241,196,15,0.1)', padding: '10px', borderRadius: '8px' }}>* 請依照正確配對組合橫向對齊上傳。建議圖檔為 1:1，單張限 300KB 內。</p>
                 {matchPairs.map((pair, index) => (
-                  <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '8px', borderRadius: '5px' }}>
-                    <span style={{ color: '#fff', width: '20px' }}>{index+1}.</span>
-                    <input type="text" placeholder="名字" value={pair.tName} onChange={e => { const newPairs = [...matchPairs]; newPairs[index].tName = e.target.value; setMatchPairs(newPairs); }} className="game-input" style={{ padding: '5px', marginBottom: 0, flex: 1 }} /> 
-                    <label style={{ flex: 1, height: '40px', background: 'rgba(0,0,0,0.3)', border: '1px dashed #3498db', borderRadius: '5px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-                      {pair.tImg ? <img src={pair.tImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.8rem', color: '#3498db'}}>+ 選擇圖片</span>}
+                  <div key={index} style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center', background: 'rgba(255,255,255,0.08)', padding: '12px', borderRadius: '10px' }}>
+                    <span style={{ color: '#fff', width: '25px', fontWeight: 'bold', fontSize: '1.2rem' }}>{index+1}.</span>
+                    <input type="text" placeholder="物件名稱" value={pair.tName} onChange={e => { const newPairs = [...matchPairs]; newPairs[index].tName = e.target.value; setMatchPairs(newPairs); }} className="game-input" style={{ padding: '10px', marginBottom: 0, flex: 1 }} /> 
+                    <label style={{ flex: 1, height: '50px', background: 'rgba(0,0,0,0.5)', border: '1px dashed #3498db', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                      {pair.tImg ? <img src={pair.tImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#3498db'}}>+ 選擇原圖</span>}
                       <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={(e) => handleImageUpload(index, 'tImg', e)} />
                     </label>
-                    <span style={{ color: '#2ecc71', margin: '0 2px' }}>🔗</span>
-                    <label style={{ flex: 1, height: '40px', background: 'rgba(0,0,0,0.3)', border: '1px dashed #e74c3c', borderRadius: '5px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-                      {pair.bImg ? <img src={pair.bImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.8rem', color: '#e74c3c'}}>+ 選擇圖片</span>}
+                    <span style={{ color: '#2ecc71', margin: '0 5px', fontSize: '1.2rem' }}>🔗</span>
+                    <label style={{ flex: 1, height: '50px', background: 'rgba(0,0,0,0.5)', border: '1px dashed #e74c3c', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                      {pair.bImg ? <img src={pair.bImg} alt="預覽" style={{ height: '100%', objectFit: 'contain' }} /> : <span style={{fontSize: '0.9rem', color: '#e74c3c'}}>+ 選擇配對圖</span>}
                       <input type="file" accept="image/jpeg, image/png" style={{ display: 'none' }} onChange={(e) => handleImageUpload(index, 'bImg', e)} />
                     </label>
                   </div>
@@ -1103,12 +1045,12 @@ function AdminApp() {
               </div>
             )}
 
-            <button className="btn-summon" onClick={handleSaveQuestion} style={{ marginTop: '15px', background: editingQuestionId ? '#f39c12' : '#3498db' }}>
-              {editingQuestionId ? '💾 儲存修改' : '➕ 加入這題'}
+            <button className="btn-summon" onClick={handleSaveQuestion} style={{ marginTop: '25px', background: editingQuestionId ? 'linear-gradient(90deg, #f39c12, #e67e22)' : 'linear-gradient(90deg, #3498db, #2980b9)', fontSize: '1.2rem', padding: '12px' }}>
+              {editingQuestionId ? '💾 儲存修改內容' : '➕ 將此題加入題庫'}
             </button>
           </div>
 
-          <button className="btn-summon" onClick={handleSavePack} style={{ marginTop: '20px', background: '#2ecc71' }}>💾 儲存題庫包</button>
+          <button className="btn-summon" onClick={handleSavePack} style={{ marginTop: '30px', background: 'linear-gradient(90deg, #2ecc71, #27ae60)', fontSize: '1.3rem', padding: '15px' }}>💾 完成！儲存整包題庫</button>
         </div>
       </PageLayout>
     );
@@ -1116,20 +1058,30 @@ function AdminApp() {
 
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
-      <div className="game-panel login-panel" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-          <h2 style={{ color: '#FFD700' }}>📚 創作者儀表板</h2>
-          <button onClick={() => setAdminUser(null)} style={{ padding: '0.5rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '5px' }}>登出</button>
+      <div className="game-panel login-panel" style={{ width: '95%', maxWidth: '1200px', margin: '0 auto', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2.5rem', alignItems: 'center' }}>
+          <h2 style={{ color: '#FFD700', margin: 0, fontSize: '2rem', textShadow: '0 0 10px rgba(241,196,15,0.5)' }}>📚 創作者儀表板</h2>
+          <button onClick={() => setAdminUser(null)} style={{ padding: '0.6rem 1.2rem', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>登出系統</button>
         </div>
-        <button className="btn-summon" onClick={handleCreateNewPack} style={{ background: '#2ecc71', marginBottom: '20px' }}>➕ 建立題庫</button>
-        <div style={{ display: 'grid', gap: '15px' }}>
+        <button className="btn-summon" onClick={handleCreateNewPack} style={{ background: 'linear-gradient(90deg, #2ecc71, #27ae60)', marginBottom: '25px', fontSize: '1.2rem', padding: '12px' }}>➕ 建立全新題庫</button>
+        
+        {quizPacks.length === 0 && (
+           <div style={{ textAlign: 'center', padding: '2rem', color: '#7f8c8d', fontStyle: 'italic' }}>
+             目前還沒有題庫包，點擊上方按鈕建立你的第一個題庫吧！
+           </div>
+        )}
+
+        <div style={{ display: 'grid', gap: '20px' }}>
           {quizPacks.map(pack => (
-            <div key={pack.id} style={{ background: 'rgba(255,255,255,0.1)', padding: '15px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div><h3 style={{ color: '#fff' }}>{pack.title}</h3><p style={{ color: '#bdc3c7', fontSize: '0.9rem' }}>共 {pack.questions?.length || 0} 題</p></div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn-summon" onClick={() => { setEditingPack(pack); setEditingQuestionId(null); }} style={{ padding: '10px', background: '#3498db' }}>編輯</button>
-                <button className="btn-summon" onClick={() => handleDeletePack(pack.id)} style={{ padding: '10px', background: '#e74c3c' }}>🗑️ 刪除</button>
-                <button className="btn-summon" onClick={() => handleHostGame(pack)} style={{ padding: '10px', background: '#e67e22' }}>🚀 開房</button>
+            <div key={pack.id} style={{ background: 'rgba(255,255,255,0.08)', padding: '20px', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '8px solid #3498db', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>
+              <div>
+                 <h3 style={{ color: '#fff', fontSize: '1.5rem', marginBottom: '8px' }}>{pack.title}</h3>
+                 <p style={{ color: '#bdc3c7', fontSize: '1rem', fontWeight: 'bold' }}>包含 {pack.questions?.length || 0} 道題目</p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn-summon" onClick={() => { setEditingPack(pack); setEditingQuestionId(null); }} style={{ padding: '10px 20px', background: 'linear-gradient(90deg, #3498db, #2980b9)', minWidth: '80px' }}>編輯</button>
+                <button className="btn-summon" onClick={() => handleDeletePack(pack.id)} style={{ padding: '10px 20px', background: 'linear-gradient(90deg, #e74c3c, #c0392b)', minWidth: '80px' }}>🗑️ 刪除</button>
+                <button className="btn-summon" onClick={() => handleHostGame(pack)} style={{ padding: '10px 30px', background: 'linear-gradient(90deg, #f39c12, #e67e22)', fontSize: '1.2rem', marginLeft: '10px' }}>🚀 啟動遊戲</button>
               </div>
             </div>
           ))}
@@ -1165,21 +1117,21 @@ export default function App() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding-top: 5vh;
+          padding-top: 4vh;
           padding-bottom: 10vh;
           font-family: "Noto Sans TC", sans-serif;
           transition: background-image 0.5s ease-in-out;
           background-color: #050505;
         }
 
-        /* 📱 手機版 RWD 魔法 📱 */
+        /* 📱 手機版 RWD 魔法 (僅針對玩家端進行約束) 📱 */
         @media (max-width: 768px) {
           .page-layout-wrapper {
             background-size: cover, contain !important;
             background-position: center, top center !important;
           }
           .title-wrapper {
-            margin-top: 25vh !important;
+            margin-top: 22vh !important;
           }
           .login-panel {
             margin-top: 2vh !important;
