@@ -3,10 +3,13 @@ import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom'
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-// 🌐 Supabase 憑證設定：請填入您全新專案的網址與 anon key (Publishable)
-const SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/';
-const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 🌐 Supabase 憑證設定：請填入您專案的網址與 anon key
+const RAW_SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/'; // 貼這裡
+const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7'; // 貼這裡
+
+// 🛡️ 終極防呆機制：自動攔截並修復錯誤的 URL 格式 (解決 PGRST125 錯誤)
+const CLEAN_SUPABASE_URL = RAW_SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+const supabase = createClient(CLEAN_SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
 // 🎵 全域音效引擎
@@ -46,7 +49,7 @@ const DEFAULT_TITLE = '瞬答 FlashQuiz';
 const DEFAULT_BG = '/flashquiz.jpg';
 
 // ==========================================
-// 🎨 全域大佈局組件 (已修正：還原原本字樣，僅放大字體)
+// 🎨 全域大佈局組件
 // ==========================================
 const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
@@ -63,7 +66,6 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
     >
       {displayTitle !== "" && bgImg !== 'LOADING' && (
         <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '30px' }}>
-          {/* ✨ 這裡已修正：拿掉可怕的綠色發光，回歸原本的 text-glow 樣式，僅單純放大字體 */}
           <h1 className="text-glow" style={{ fontSize: 'clamp(2.5rem, 5vw, 4rem)', margin: 0, padding: '0 20px', letterSpacing: '2px' }}>
             {displayTitle}
           </h1>
@@ -111,7 +113,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面 (兼顧手機、平板、PC 的 APP 化佈局)
+// 🎮 玩家端介面
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -286,6 +288,7 @@ function PlayerApp() {
         </div>
       )}
 
+      {/* 📱 玩家介面固定最大寬度 600px */}
       {isJoined && currentQuestion && !leaderboard && !reviewData && !podiumData && (
         <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '15px', borderBottom: '2px solid rgba(255,215,0,0.3)', paddingBottom: '10px' }}>
@@ -632,7 +635,7 @@ function AdminApp() {
 
   const handleCreateNewPack = () => { setEditingPack({ title: '未命名題庫包', author: adminUser, backgroundImg: '', questions: [] }); };
   
-  // 👑 【✨ 核心改動：升級為超級錯誤精準捕捉版 ✨】
+  // 👑 【✨ 精準捕捉錯誤機制：如果發生錯誤，印出完整訊息 ✨】
   const handleSavePack = async () => {
     if (!editingPack.title.trim()) return alert('請填寫名稱！');
     const payload = { title: editingPack.title, author: adminUser!, background_img: editingPack.backgroundImg, questions: editingPack.questions };
@@ -656,7 +659,6 @@ function AdminApp() {
       fetchQuizzes(adminUser!); 
     } else { 
       console.error('Supabase Save Error:', error);
-      // 🔥 直接把詳細代碼與訊息跳出來，拒絕盲猜
       alert(`❌ 儲存失敗！\n【原因】：${error.message}\n【代碼】：${error.code}\n【詳情】：${error.details || '無'}`); 
     }
   };
@@ -773,6 +775,7 @@ function AdminApp() {
     </PageLayout>
   );
 
+  // 👑 【主持人控場中心】
   if (hostingPin) {
     const isGameStarted = currentQuestion || leaderboard || reviewData || podiumData;
     return (
@@ -824,7 +827,7 @@ function AdminApp() {
 
                   {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order' || currentQuestion.type === 'img_choice') && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', opacity: 0.95 }}>
-                      {currentQuestion.options?.map((opt: any) => HabatDiv(opt))}
+                      {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '25px', fontSize: '1.8rem', fontWeight: 'bold', background: 'rgba(255,255,255,0.1)', borderRadius: '15px', borderLeft: `12px solid ${opt.color}`, color: '#fff', boxShadow: '0 6px 15px rgba(0,0,0,0.3)', transition: 'transform 0.2s' }}>{opt.text}</div>))}
                     </div>
                   )}
                   {currentQuestion.type === 'tf' && (
@@ -838,13 +841,13 @@ function AdminApp() {
               )}
               
               {leaderboard && !reviewData && !podiumData && (
-                <div><h2 style={{ color: '#FFD700', fontSize: '3rem', marginBottom: '2.5rem', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>🏆 排名結算</h2><LeaderboardView data={leaderboard} />
+                <div><h2 style={{ color: '#FFD700', fontSize: '3rem', marginBottom: '2.5rem', textShadow: '0 0 15px rgba(241,196,15,0.5)' }}>🏆 排名結算</h2><LeaderboardView data={leaderboard} />
                 <button className="btn-summon" onClick={showReviewAnswer} style={{ background: 'linear-gradient(90deg, #34495e, #2c3e50)', marginTop: '30px', fontSize: '1.6rem', padding: '20px' }}>🔍 揭曉正確答案</button></div>
               )}
 
               {reviewData && (
                 <div>
-                  <h2 style={{ color: '#3498db', fontSize: '2.8rem', marginBottom: '2rem', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>正確答案</h2>
+                  <h2 style={{ color: '#3498db', fontSize: '2.8rem', marginBottom: '2rem', textShadow: '0 0 15px rgba(52, 152, 219, 0.5)' }}>正確答案</h2>
 
                   {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '35px' }}>
@@ -890,10 +893,10 @@ function AdminApp() {
                 <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content">
-                    <h2 style={{ color: '#FFD700', fontSize: '4.5rem', marginBottom: '3rem', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>🏆 傳奇誕生 🏆</h2>
-                    {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '4rem', textShadow: '0 2px 8 rgba(0,0,0,0.5)'}}>🥇 {podiumData[0].username} <span style={{fontSize:'2rem'}}>({podiumData[0].score}分)</span></h3>}
-                    {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '3rem', textShadow: '0 2px 6px rgba(0,0,0,0.5)'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1.6rem'}}>({podiumData[1]?.score}分)</span></h4>}
-                    {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '2.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'1.3rem'}}>({podiumData[2]?.score}分)</span></h4>}
+                    <h2 style={{ color: '#FFD700', fontSize: '4.5rem', marginBottom: '3rem', textShadow: '0 0 25px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
+                    {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '4rem', textShadow: '0 4px 8px rgba(0,0,0,0.8)'}}>🥇 {podiumData[0].username} <span style={{fontSize:'2rem'}}>({podiumData[0].score}分)</span></h3>}
+                    {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '3rem', textShadow: '0 3px 6px rgba(0,0,0,0.8)'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1.6rem'}}>({podiumData[1]?.score}分)</span></h4>}
+                    {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '2.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'1.3rem'}}>({podiumData[2]?.score}分)</span></h4>}
                   </div>
                   <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: 'linear-gradient(90deg, #3498db, #2980b9)', marginTop: '50px', position: 'relative', zIndex: 10, fontSize: '1.8rem', padding: '20px 40px' }}>🏠 結束並返回大廳</button>
                 </div>
@@ -905,6 +908,7 @@ function AdminApp() {
     );
   }
 
+  // 👑 【題庫編輯器】
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
@@ -1065,6 +1069,7 @@ function AdminApp() {
     );
   }
 
+  // 👑 【創作者儀表板】
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
       <div className="game-panel login-panel admin-mega-panel" style={{ margin: '0 auto', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
@@ -1144,6 +1149,10 @@ export default function App() {
           }
           .login-panel {
             margin-top: 2vh !important;
+          }
+          /* 手機版題庫編輯器選項變成單行 */
+          #question-edit-form > div:nth-child(5) {
+             grid-template-columns: 1fr !important;
           }
         }
 
