@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
 // 🌐 Supabase 憑證設定
-const RAW_SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/'; // 貼這裡
-const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7'; // 貼這裡
+const RAW_SUPABASE_URL = 'https://你的專案代碼.supabase.co'; // 貼這裡
+const SUPABASE_ANON_KEY = '你的ANON_KEY'; // 貼這裡
 
 const CLEAN_SUPABASE_URL = RAW_SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 const supabase = createClient(CLEAN_SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -142,6 +142,19 @@ function PlayerApp() {
   const [channel, setChannel] = useState<any>(null);
   const [myScore, setMyScore] = useState(0);
 
+  // 💡 核心修復：使用 Ref 暫存玩家的作答與分數，避免 Re-render 時洗掉 Supabase 監聽器
+  const scoreRef = useRef(0);
+  const singleRef = useRef('');
+  const multiRef = useRef<string[]>([]);
+  const orderRef = useRef<any[]>([]);
+  const matchRef = useRef<Record<string, string>>({});
+
+  useEffect(() => { scoreRef.current = myScore; }, [myScore]);
+  useEffect(() => { singleRef.current = singleSelected; }, [singleSelected]);
+  useEffect(() => { multiRef.current = multiSelected; }, [multiSelected]);
+  useEffect(() => { orderRef.current = orderState; }, [orderState]);
+  useEffect(() => { matchRef.current = userMatches; }, [userMatches]);
+
   useEffect(() => {
     if (isJoined && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
@@ -179,7 +192,7 @@ function PlayerApp() {
         setIsPreparing(true); setPrepareData(payload); setPrepareTimeLeft(3);
         setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); setCurrentQuestion(null);
         setSingleSelected(''); setUserMatches({}); setActiveTopId(null); setMultiSelected([]); setOrderState([]); setHasAnswered(false);
-        quizRoom.track({ score: myScore, hasAnswered: false });
+        quizRoom.track({ score: scoreRef.current, hasAnswered: false });
       })
       .on('broadcast', { event: 'receive_question' }, ({ payload }) => {
         setIsPreparing(false);
@@ -193,11 +206,12 @@ function PlayerApp() {
         const stats = payload.stats || {};
         let isCorrect = false;
 
+        // 💡 核心修復：從 Ref 讀取最新答案，確保不會被舊狀態覆蓋
         let myAns: any = '';
-        if (currentQuestion?.type === 'match') myAns = userMatches;
-        else if (currentQuestion?.type === 'multi') myAns = multiSelected;
-        else if (currentQuestion?.type === 'order') myAns = orderState.map(o => o.id).join(',');
-        else myAns = singleSelected; 
+        if (q.type === 'match') myAns = matchRef.current;
+        else if (q.type === 'multi') myAns = multiRef.current;
+        else if (q.type === 'order') myAns = orderRef.current.map(o => o.id).join(',');
+        else myAns = singleRef.current;
 
         if (['choice', 'tf', 'guess', 'img_choice'].includes(q.type)) {
           isCorrect = myAns === q.correctAnswer;
@@ -210,7 +224,7 @@ function PlayerApp() {
         }
 
         const earned = isCorrect ? 100 : 0;
-        const nextScore = myScore + earned;
+        const nextScore = scoreRef.current + earned;
         if (isCorrect) setMyScore(nextScore);
 
         setAnswerResult({ isCorrect, earnedScore: earned });
@@ -229,7 +243,8 @@ function PlayerApp() {
 
     setChannel(quizRoom);
     return () => { quizRoom.unsubscribe(); };
-  }, [isJoined, pin, username, currentQuestion, userMatches, multiSelected, orderState, myScore, singleSelected]);
+    // 💡 依賴陣列徹底清理乾淨，保證連線不中斷
+  }, [isJoined, pin, username]); 
 
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
@@ -249,20 +264,19 @@ function PlayerApp() {
     if (timeLeft === 0 && currentQuestion && !hasAnswered && !isPreparing) {
       setHasAnswered(true);
       if (channel) {
-         channel.track({ score: myScore, hasAnswered: true });
+         channel.track({ score: scoreRef.current, hasAnswered: true });
          channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: null } }); 
       }
     }
     return () => clearTimeout(timerId);
-  }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData, isPreparing]);
+  }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData, isPreparing, channel, username]);
 
   const handleJoinArena = () => { if (username.trim() && pin.trim()) { setIsJoined(true); unlockAudio(); } };
   
-  // 💡 修正 BUG 2：確實把使用者的答案打包送給伺服器，不要讓系統瞎猜
   const submitPlayerAnswer = (actualAnswer: any) => {
     setHasAnswered(true);
     if (channel) {
-      channel.track({ score: myScore, hasAnswered: true });
+      channel.track({ score: scoreRef.current, hasAnswered: true });
       channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: actualAnswer } });
     }
   };
@@ -299,7 +313,6 @@ function PlayerApp() {
         </div>
       )}
 
-      {/* 💡 玩家畫面：準備階段提示 */}
       {isJoined && isPreparing && prepareData && (
         <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '10vh auto', textAlign: 'center', padding: '3rem 2rem' }}>
            <h2 style={{ fontSize: '2rem', color: '#bdc3c7', marginBottom: '2rem', letterSpacing: '3px' }}>⚔️ 準備迎接挑戰</h2>
@@ -598,14 +611,22 @@ function AdminApp() {
         const state = hostChannel.presenceState();
         setPlayers(prev => {
           const newList = Object.keys(state).map(key => ({ username: key, score: state[key][0]?.score || 0, hasAnswered: state[key][0]?.hasAnswered || false }));
-          return newList.map(newP => { const oldP = prev.find(p => p.username === newP.username); return oldP?.hasAnswered ? { ...newP, hasAnswered: true } : newP; });
+          return newList.map(newP => { 
+             const oldP = prev.find(p => p.username === newP.username); 
+             // 💡 核心修復：當同步玩家列表時，絕不能覆寫掉他已經送出的 currentAnswer！
+             return {
+                 ...newP,
+                 hasAnswered: oldP?.hasAnswered || newP.hasAnswered,
+                 currentAnswer: oldP?.currentAnswer || null
+             };
+          });
         });
       })
       .on('broadcast', { event: 'player_joined' }, () => {
         hostChannel.send({ type: 'broadcast', event: 'room_info', payload: { title: pack.title, backgroundImg: pack.backgroundImg } });
       })
-      // 💡 修正 BUG 1：監聽真實玩家答案的廣播，實現零延遲更新畫面與記錄實際答案
       .on('broadcast', { event: 'player_answered' }, ({ payload }) => {
+        // 主持人確實把玩家送來的真實 answer 記錄下來
         setPlayers(prev => prev.map(p => p.username === payload.username ? { ...p, hasAnswered: true, currentAnswer: payload.answer } : p));
       });
 
@@ -620,7 +641,6 @@ function AdminApp() {
     const q = editingPack.questions[currentQIndex];
     const prepPayload = { type: q.type, currentQIndex: currentQIndex + 1, totalQuestions: editingPack.questions.length };
 
-    // 💡 修正 BUG 3：準備階段廣播
     setIsPreparing(true);
     setPrepareTimeLeft(3);
     setPrepareData(prepPayload);
@@ -644,8 +664,8 @@ function AdminApp() {
   };
 
   const showReviewAnswer = () => {
-    // 💡 修正結算：徹底拔除假數據，改用玩家真實填寫的 currentAnswer 來統計！
     const stats: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, O: 0, X: 0 };
+    // 💡 核心修復：精準從玩家真實的 currentAnswer 統計人數
     players.forEach((p) => {
       if (p.hasAnswered && p.currentAnswer) {
         if (typeof p.currentAnswer === 'string') {
@@ -845,7 +865,10 @@ function AdminApp() {
                     </div>
                   </div>
 
-                  <h3 style={{ color: '#34db98', marginBottom: '1.5vh', fontSize: '1.8rem', margin: '1vh 0' }}>⏳ 題目作答中... (已答題: <span style={{color:'#fff'}}>{players.filter(p => p.hasAnswered).length} / {players.length}</span> 人)</h3>
+                  {/* 💡 核心修復 2：加上倒數秒數提示 */}
+                  <h3 style={{ color: '#34db98', marginBottom: '1.5vh', fontSize: '1.8rem', margin: '1vh 0' }}>
+                    ⏳ 題目作答中... 倒數 <span style={{color: '#f1c40f', fontSize: '2.4rem', fontWeight: '900'}}>{timeLeft}</span> 秒 (已答題: <span style={{color:'#fff'}}>{players.filter(p => p.hasAnswered).length} / {players.length}</span> 人)
+                  </h3>
                   
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '2vh', flexWrap: 'wrap' }}>
                     <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '8px 20px', borderRadius: '10px', fontSize: '1.6rem', fontWeight: '900', boxShadow: '0 4px 8px rgba(0,0,0,0.4)', whiteSpace: 'nowrap' }}>
@@ -945,6 +968,7 @@ function AdminApp() {
     );
   }
 
+  // 👑 【題庫編輯器】
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
@@ -1203,7 +1227,6 @@ export default function App() {
           color: #FFF !important;
         }
 
-        /* 新增：準備階段的呼吸燈特效 */
         @keyframes pulse {
           0% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.1); opacity: 0.8; }
