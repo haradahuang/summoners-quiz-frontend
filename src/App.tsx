@@ -4,8 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
 // 🌐 Supabase 憑證設定
-const RAW_SUPABASE_URL = 'https://你的專案代碼.supabase.co'; // 貼這裡
-const SUPABASE_ANON_KEY = '你的ANON_KEY'; // 貼這裡
+const RAW_SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/'; // 貼這裡
+const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7'; // 貼這裡
 
 const CLEAN_SUPABASE_URL = RAW_SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 const supabase = createClient(CLEAN_SUPABASE_URL, SUPABASE_ANON_KEY);
