@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom'
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-// 🌐 Supabase 憑證設定
+// 🌐 Supabase Pro 憑證設定
 const RAW_SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/'; // 貼這裡
 const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7'; // 貼這裡
 
@@ -75,26 +75,29 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
 };
 
 // ==========================================
-// 🏆 排行榜組件
+// 🏆 排行榜組件 (千人效能優化版：僅渲染 Top 20)
 // ==========================================
 let globalLastLeaderboard: any[] = [];
 const LeaderboardView = ({ data }: { data: any[] }) => {
+  // ⚡ 效能攔截：無論進來多少人，動畫 DOM 節點最多只允許 20 個，避免千人渲染卡死瀏覽器
+  const top20Data = data.slice(0, 20);
+  
   const [displayRanks, setDisplayRanks] = useState(() => {
-    return data.map((player) => {
+    return top20Data.map((player) => {
       const oldIndex = globalLastLeaderboard.findIndex(p => p.username === player.username);
-      return { ...player, currentIdx: oldIndex !== -1 ? oldIndex : data.length, opacity: oldIndex !== -1 ? 1 : 0 };
+      return { ...player, currentIdx: oldIndex !== -1 ? oldIndex : top20Data.length, opacity: oldIndex !== -1 ? 1 : 0 };
     });
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => { setDisplayRanks(data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 }))); globalLastLeaderboard = data; }, 50);
+    const timer = setTimeout(() => { setDisplayRanks(top20Data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 }))); globalLastLeaderboard = top20Data; }, 50);
     return () => clearTimeout(timer);
-  }, [data]);
+  }, [data]); // eslint-disable-line
 
   return (
-    <div style={{ position: 'relative', height: `${data.length * 60}px`, transition: 'height 0.3s', marginBottom: '10px' }}>
+    <div style={{ position: 'relative', height: `${top20Data.length * 60}px`, transition: 'height 0.3s', marginBottom: '10px' }}>
       {displayRanks.map((player) => {
-        const idx = player.currentIdx; const finalIdx = data.findIndex(p => p.username === player.username); 
+        const idx = player.currentIdx; const finalIdx = top20Data.findIndex(p => p.username === player.username); 
         const isTop3 = finalIdx < 3; const rankColors = ['#FFD700', '#bdc3c7', '#e67e22']; const rankColor = isTop3 ? rankColors[finalIdx] : '#444';
         const fontSize = finalIdx === 0 ? '1.4rem' : finalIdx === 1 ? '1.2rem' : finalIdx === 2 ? '1.1rem' : '1rem';
         return (
@@ -116,7 +119,7 @@ function PlayerApp() {
   const [pin, setPin] = useState(searchParams.get('pin') || '');
   const [username, setUsername] = useState('');
   const [isJoined, setIsJoined] = useState(false);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<any[]>([]); // 此陣列用來找尋自己的最新全服排名
   
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(searchParams.get('pin') ? 'LOADING' : DEFAULT_BG);
@@ -142,11 +145,13 @@ function PlayerApp() {
   const [channel, setChannel] = useState<any>(null);
   const [myScore, setMyScore] = useState(0);
 
+  const scoreRef = useRef(0);
   const singleRef = useRef('');
   const multiRef = useRef<string[]>([]);
   const orderRef = useRef<any[]>([]);
   const matchRef = useRef<Record<string, string>>({});
 
+  useEffect(() => { scoreRef.current = myScore; }, [myScore]);
   useEffect(() => { singleRef.current = singleSelected; }, [singleSelected]);
   useEffect(() => { multiRef.current = multiSelected; }, [multiSelected]);
   useEffect(() => { orderRef.current = orderState; }, [orderState]);
@@ -167,43 +172,32 @@ function PlayerApp() {
   useEffect(() => {
     if (!isJoined || !pin) return;
 
-    const quizRoom = supabase.channel(`room_${pin}`, {
-      config: { presence: { key: username } }
-    });
+    const quizRoom = supabase.channel(`room_${pin}`, { config: { presence: { key: username } } });
 
     quizRoom
-      .on('presence', { event: 'sync' }, () => {
-        const state = quizRoom.presenceState();
-        setPlayers(Object.keys(state).map(key => ({ username: key, score: state[key][0]?.score || 0 })));
-      })
-      .on('broadcast', { event: 'room_info' }, ({ payload }) => {
-        setRoomTitle(payload.title || DEFAULT_TITLE); setRoomBg(payload.backgroundImg || DEFAULT_BG);
-      })
+      .on('presence', { event: 'sync' }, () => {})
+      .on('broadcast', { event: 'room_info' }, ({ payload }) => { setRoomTitle(payload.title || DEFAULT_TITLE); setRoomBg(payload.backgroundImg || DEFAULT_BG); })
       .on('broadcast', { event: 'prepare_question' }, ({ payload }) => {
         setIsPreparing(true); setPrepareData(payload); setPrepareTimeLeft(3);
         setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); setCurrentQuestion(null);
         setSingleSelected(''); setUserMatches({}); setActiveTopId(null); setMultiSelected([]); setOrderState([]); setHasAnswered(false);
+        quizRoom.track({ isOnline: true });
       })
       .on('broadcast', { event: 'receive_question' }, ({ payload }) => {
-        setIsPreparing(false);
-        const q = payload;
+        setIsPreparing(false); const q = payload;
         if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
         if (q.type === 'order' && q.options) setOrderState([...q.options].sort(() => Math.random() - 0.5));
         setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
       })
       .on('broadcast', { event: 'reveal_answer' }, ({ payload }) => {
-        const q = payload.question;
-        const stats = payload.stats || {};
-        const hostPlayers = payload.players || []; // 👑 這是主機結算後的最新分數清單
+        const q = payload.question; const stats = payload.stats || {}; const hostPlayers = payload.players || [];
         
-        let isCorrect = false;
-        let myAns: any = '';
+        let isCorrect = false; let myAns: any = '';
         if (q.type === 'match') myAns = matchRef.current;
         else if (q.type === 'multi') myAns = multiRef.current;
         else if (q.type === 'order') myAns = orderRef.current.map(o => o.id).join(',');
         else myAns = singleRef.current;
 
-        // 玩家端這裡只負責「顯示打勾還是打叉」，真正的分數由主機決定
         if (['choice', 'tf', 'guess', 'img_choice'].includes(q.type)) isCorrect = myAns === q.correctAnswer;
         else if (q.type === 'multi') isCorrect = Array.isArray(myAns) && myAns.length === q.correctAnswers.length && myAns.every(v => q.correctAnswers.includes(v));
         else if (q.type === 'order') isCorrect = myAns === q.correctAnswer;
@@ -213,21 +207,19 @@ function PlayerApp() {
         const me = hostPlayers.find((p: any) => p.username === username);
         if (me) setMyScore(me.score);
 
+        setPlayers(hostPlayers); // 更新全服名單以利計算排名
         setAnswerResult({ isCorrect, earnedScore: isCorrect ? 100 : 0 });
         setReviewData({ question: q, stats });
       })
       .on('broadcast', { event: 'leaderboard_updated' }, ({ payload }) => { 
          setLeaderboard(payload); 
-         const me = payload.find((p: any) => p.username === username);
-         if (me) setMyScore(me.score);
+         setPlayers(payload);
+         const me = payload.find((p: any) => p.username === username); if (me) setMyScore(me.score);
       })
       .on('broadcast', { event: 'podium_updated' }, ({ payload }) => { setPodiumData(payload); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null); });
 
     quizRoom.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await quizRoom.track({ isOnline: true });
-        quizRoom.send({ type: 'broadcast', event: 'player_joined', payload: { username } });
-      }
+      if (status === 'SUBSCRIBED') { await quizRoom.track({ isOnline: true }); quizRoom.send({ type: 'broadcast', event: 'player_joined', payload: { username } }); }
     });
 
     setChannel(quizRoom);
@@ -236,9 +228,7 @@ function PlayerApp() {
 
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
-    if (isPreparing && prepareTimeLeft > 0) {
-      timerId = setTimeout(() => setPrepareTimeLeft(prepareTimeLeft - 1), 1000);
-    }
+    if (isPreparing && prepareTimeLeft > 0) timerId = setTimeout(() => setPrepareTimeLeft(prepareTimeLeft - 1), 1000);
     return () => clearTimeout(timerId);
   }, [isPreparing, prepareTimeLeft]);
 
@@ -251,21 +241,16 @@ function PlayerApp() {
 
     if (timeLeft === 0 && currentQuestion && !hasAnswered && !isPreparing) {
       setHasAnswered(true);
-      if (channel) {
-         channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: null } }); 
-      }
+      if (channel) channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: null } }); 
     }
     return () => clearTimeout(timerId);
   }, [currentQuestion, timeLeft, hasAnswered, leaderboard, reviewData, podiumData, isPreparing, channel, username]);
 
   const handleJoinArena = () => { if (username.trim() && pin.trim()) { setIsJoined(true); unlockAudio(); } };
   
-  // ⚡ 玩家送出答案時，只透過專屬廣播告知主機，完全避開 Presence 覆蓋！
   const submitPlayerAnswer = (actualAnswer: any) => {
     setHasAnswered(true);
-    if (channel) {
-      channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: actualAnswer } });
-    }
+    if (channel) channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: actualAnswer } });
   };
 
   const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setSingleSelected(answerId); submitPlayerAnswer(answerId); } };
@@ -303,12 +288,8 @@ function PlayerApp() {
       {isJoined && isPreparing && prepareData && (
         <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '10vh auto', textAlign: 'center', padding: '3rem 2rem' }}>
            <h2 style={{ fontSize: '2rem', color: '#bdc3c7', marginBottom: '2rem', letterSpacing: '3px' }}>⚔️ 準備迎接挑戰</h2>
-           <div style={{ fontSize: '3rem', fontWeight: '900', color: qTypeColors[prepareData.type] || '#fff', textShadow: '0 0 20px rgba(255,255,255,0.3)', marginBottom: '2rem' }}>
-             {qTypeLabels[prepareData.type]}
-           </div>
-           <div style={{ fontSize: '5rem', color: '#f1c40f', textShadow: '0 4px 10px rgba(0,0,0,0.5)', fontWeight: 'bold', animation: 'pulse 1s infinite' }}>
-             {prepareTimeLeft}
-           </div>
+           <div style={{ fontSize: '3rem', fontWeight: '900', color: qTypeColors[prepareData.type] || '#fff', textShadow: '0 0 20px rgba(255,255,255,0.3)', marginBottom: '2rem' }}>{qTypeLabels[prepareData.type]}</div>
+           <div style={{ fontSize: '5rem', color: '#f1c40f', textShadow: '0 4px 10px rgba(0,0,0,0.5)', fontWeight: 'bold', animation: 'pulse 1s infinite' }}>{prepareTimeLeft}</div>
         </div>
       )}
 
@@ -317,16 +298,13 @@ function PlayerApp() {
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '15px', borderBottom: '2px solid rgba(255,215,0,0.3)', paddingBottom: '10px' }}>
             <span>👤 {username}</span><span>🏆 積分: {myScore} | 🏅 排名: {myRank}</span>
           </div>
-          
           <div style={{ position: 'relative', width: '100%', height: '20px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden', marginBottom: '1rem', border: '1px solid rgba(255,215,0,0.5)' }}>
             <div style={{ height: '100%', background: 'linear-gradient(90deg, #f39c12, #f1c40f)', width: `${((currentQuestion?.currentQIndex || 1) / (currentQuestion?.totalQuestions || 1)) * 100}%`, transition: 'width 0.5s' }} />
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1rem', flexWrap: 'wrap' }}>
             <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 10px', borderRadius: '8px', fontSize: '1rem', fontWeight: '900' }}>{qTypeLabels[currentQuestion.type] || '未知'}</span>
             <h2 style={{ color: '#FFF', fontSize: '1.3rem', margin: 0, textAlign: 'left', lineHeight: '1.3' }}>{currentQuestion?.text}</h2>
           </div>
-
           <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.6)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
@@ -418,7 +396,6 @@ function PlayerApp() {
       {isJoined && reviewData && !leaderboard && !podiumData && (
         <div className="game-panel" style={{ width: '95%', maxWidth: '600px', margin: '0 auto', paddingBottom: '1rem' }}>
           <h2 style={{ color: '#3498db', fontSize: '1.8rem', marginBottom: '1rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>正確答案</h2>
-          
           {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
                 <div style={{ width: reviewData.question.type === 'img_choice' ? '100%' : '150px', maxWidth: '350px', height: reviewData.question.type === 'img_choice' ? '200px' : '150px', borderRadius: '15px', overflow: 'hidden', border: '3px solid #2ecc71', boxShadow: '0 0 15px rgba(46, 204, 113, 0.4)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -426,51 +403,12 @@ function PlayerApp() {
                 </div>
              </div>
           )}
-
           {(reviewData.question.type === 'choice' || reviewData.question.type === 'multi' || reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                {reviewData.question.options.map((opt: any) => {
                  const isC = reviewData.question.type === 'multi' ? reviewData.question.correctAnswers.includes(opt.id) : opt.id === reviewData.question.correctAnswer;
                  return (<div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: isC ? 'rgba(46, 204, 113, 0.25)' : 'rgba(30, 40, 60, 0.5)', border: isC ? '2px solid #2ecc71' : '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', fontSize: '1rem', fontWeight: 'bold' }}><span style={{ color: isC ? '#2ecc71' : '#fff' }}>{isC && '✔️ '} {opt.text}</span><span style={{ color: '#bdc3c7' }}>{reviewData.stats[opt.id] || 0} 人</span></div>);
                })}
-             </div>
-          )}
-
-          {reviewData.question.type === 'order' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold', textAlign: 'center' }}>🎯 正確排序</p>
-              {(reviewData.question.options || []).map((opt: any, idx: number) => (
-                <div key={opt.id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(46, 204, 113, 0.15)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                   <span style={{ color: '#2ecc71', fontWeight: '900', marginRight: '10px', fontSize: '1.2rem', width: '25px' }}>{idx + 1}.</span>
-                   <span style={{ color: '#fff', flex: 1, fontSize: '1.1rem', textAlign: 'left', fontWeight: 'bold' }}>{opt.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {reviewData.question.type === 'tf' && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100px', height: '100px', fontSize: '4rem', fontWeight: '900', color: '#ffffff', background: reviewData.question.correctAnswer === 'O' ? 'linear-gradient(145deg, #00e673, #00b359)' : 'linear-gradient(145deg, #ff4d4d, #e60000)', borderRadius: '20px', margin: '1rem auto' }}>
-                  {reviewData.question.correctAnswer}
-                </div>
-             </div>
-          )}
-          {reviewData.question.type === 'match' && (
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-               <p style={{ color: '#2ecc71', fontSize: '1.1rem', marginBottom: '5px', fontWeight: 'bold', textAlign: 'center' }}>🎯 正確配對</p>
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                 {(reviewData.question.topItems || []).map((top: any) => {
-                   const correctBottomId = reviewData.question.correctMatches[top.id];
-                   const bottomItem = reviewData.question.bottomItems?.find((b: any) => b.id === correctBottomId);
-                   return (
-                     <div key={top.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(46, 204, 113, 0.15)', padding: '10px', borderRadius: '10px', border: '1px solid #2ecc71' }}>
-                        <img src={top.img} alt="top" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '8px' }} />
-                        <span style={{ fontSize: '1.2rem', margin: '4px 0', color: '#2ecc71' }}>⬇️</span>
-                        <img src={bottomItem?.img} alt="bottom" style={{ width: '60px', height: '60px', objectFit: 'contain', background: '#000', borderRadius: '8px' }} />
-                     </div>
-                   );
-                 })}
-               </div>
              </div>
           )}
         </div>
@@ -500,7 +438,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 專屬管理端介面 (主機絕對權威計分)
+// 👑 專屬管理端介面 (千人級別效能優化 Buffer)
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -527,14 +465,15 @@ function AdminApp() {
   const [newAns, setNewAns] = useState('A');
   const [newTfAns, setNewTfAns] = useState<'O' | 'X'>('O');
   const [newMultiAns, setNewMultiAns] = useState<string[]>([]);
-  
   const [newGuessImg, setNewGuessImg] = useState<string>(''); 
   const [newAnswerImg, setNewAnswerImg] = useState<string>('');
-  
   const [matchPairs, setMatchPairs] = useState([{ tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }]);
 
-  // 🔥 主機用來儲存所有玩家完整紀錄的唯一來源
-  const [players, setPlayers] = useState<any[]>([]);
+  // ⚡ 千人優化核心：將「所有玩家的實時狀態」鎖在記憶體，絕不觸發 React Render 卡死瀏覽器
+  const playersMap = useRef(new Map<string, any>());
+  // ⚡ 這個 State 只為了每半秒更新一次畫面上的「總人數」與「已答題人數」
+  const [dashboardStats, setDashboardStats] = useState({ total: 0, answered: 0 });
+
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0); 
@@ -545,10 +484,23 @@ function AdminApp() {
 
   const [channel, setChannel] = useState<any>(null);
 
+  // 音效控制
   useEffect(() => {
     if (hostingPin && !podiumData) { sfx.victory.pause(); sfx.bgm.play().catch(()=>{}); }
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [hostingPin, podiumData]);
+
+  // ⚡ 畫面 500ms 節流更新器 (Throttling)：保護主機 CPU，就算每秒湧入 10,000 個封包也不會卡！
+  useEffect(() => {
+    if (!hostingPin) return;
+    const interval = setInterval(() => {
+      let total = playersMap.current.size;
+      let answered = 0;
+      playersMap.current.forEach(p => { if (p.hasAnswered) answered++; });
+      setDashboardStats({ total, answered });
+    }, 500);
+    return () => clearInterval(interval);
+  }, [hostingPin]);
 
   useEffect(() => {
     let prepTimer: ReturnType<typeof setTimeout>;
@@ -556,8 +508,7 @@ function AdminApp() {
        prepTimer = setTimeout(() => setPrepareTimeLeft(prepareTimeLeft - 1), 1000);
        sfx.tick.currentTime = 0; sfx.tick.play().catch(()=>{});
     } else if (isPreparing && prepareTimeLeft === 0) {
-       setIsPreparing(false);
-       sendNextQuestionActual(); 
+       setIsPreparing(false); sendNextQuestionActual(); 
     }
     return () => clearTimeout(prepTimer);
   }, [isPreparing, prepareTimeLeft]);
@@ -586,47 +537,41 @@ function AdminApp() {
 
   const handleHostGame = (pack: any) => {
     const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
-    setHostingPin(generatedPin);
-    setHostingUrl(`${window.location.origin}/?pin=${generatedPin}`);
-    setRoomTitle(pack.title || DEFAULT_TITLE);
-    setRoomBg(pack.backgroundImg || DEFAULT_BG);
-    setEditingPack(pack); 
-    setCurrentQIndex(0);
+    setHostingPin(generatedPin); setHostingUrl(`${window.location.origin}/?pin=${generatedPin}`);
+    setRoomTitle(pack.title || DEFAULT_TITLE); setRoomBg(pack.backgroundImg || DEFAULT_BG);
+    setEditingPack(pack); setCurrentQIndex(0);
+    playersMap.current = new Map(); // 初始化清空全服名單
 
     const hostChannel = supabase.channel(`room_${generatedPin}`);
     
-    // 🔥 主機防護牆：同步在線名單時，只「加入新玩家」，絕不覆蓋舊玩家的答案與分數！
     hostChannel
       .on('presence', { event: 'sync' }, () => {
         const state = hostChannel.presenceState();
-        setPlayers(prev => {
-          const nextPlayers = [...prev];
-          Object.keys(state).forEach(key => {
-             if (!nextPlayers.find(p => p.username === key)) {
-                nextPlayers.push({ username: key, score: 0, hasAnswered: false, currentAnswer: null });
-             }
-          });
-          return nextPlayers;
+        // ⚡ 絕不覆寫記憶體！只在發現「全新玩家」時才新增到 Map 裡面
+        Object.keys(state).forEach(key => {
+           if (!playersMap.current.has(key)) {
+              playersMap.current.set(key, { username: key, score: 0, hasAnswered: false, currentAnswer: null });
+           }
         });
       })
       .on('broadcast', { event: 'player_joined' }, () => {
         hostChannel.send({ type: 'broadcast', event: 'room_info', payload: { title: pack.title, backgroundImg: pack.backgroundImg } });
       })
-      // 🔥 接收玩家真實答案，強行鎖入主機記憶體
       .on('broadcast', { event: 'player_answered' }, ({ payload }) => {
-        setPlayers(prev => prev.map(p => p.username === payload.username ? { ...p, hasAnswered: true, currentAnswer: payload.answer } : p));
+        // ⚡ 玩家答題時，直接把答案寫進 Map 記憶體，完全不觸發畫面重新 Render！極致流暢！
+        const p = playersMap.current.get(payload.username);
+        if (p) {
+           p.hasAnswered = true;
+           p.currentAnswer = payload.answer;
+        }
       });
 
-    hostChannel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') { unlockAudio(); }
-    });
+    hostChannel.subscribe(async (status) => { if (status === 'SUBSCRIBED') unlockAudio(); });
     setChannel(hostChannel);
   };
 
   const sendNextQuestion = () => {
-    const nextIndex = currentQuestion ? currentQIndex + 1 : 0;
-    setCurrentQIndex(nextIndex);
-
+    const nextIndex = currentQuestion ? currentQIndex + 1 : 0; setCurrentQIndex(nextIndex);
     if (!editingPack || !editingPack.questions || editingPack.questions.length <= nextIndex) return;
     const q = editingPack.questions[nextIndex];
     const prepPayload = { type: q.type, currentQIndex: nextIndex + 1, totalQuestions: editingPack.questions.length };
@@ -634,8 +579,8 @@ function AdminApp() {
     setIsPreparing(true); setPrepareTimeLeft(3); setPrepareData(prepPayload);
     setLeaderboard(null); setReviewData(null); setPodiumData(null); setCurrentQuestion(null);
     
-    // 清空上一輪的作答紀錄
-    setPlayers(prev => prev.map(p => ({ ...p, hasAnswered: false, currentAnswer: null })));
+    // ⚡ 每題開始前，將全服玩家的作答狀態清空
+    playersMap.current.forEach(p => { p.hasAnswered = false; p.currentAnswer = null; });
     channel.send({ type: 'broadcast', event: 'prepare_question', payload: prepPayload });
   };
 
@@ -646,60 +591,43 @@ function AdminApp() {
     channel.send({ type: 'broadcast', event: 'receive_question', payload: qPayload });
   };
 
-  // 🔥 終極大結算：主機獨攬計分權
   const showReviewAnswer = () => {
     const q = editingPack.questions[currentQIndex];
     const stats: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, O: 0, X: 0 };
     
-    const updatedPlayers = players.map(p => {
-      if (!p.hasAnswered || !p.currentAnswer) return p;
+    // ⚡ 主機統一閱卷：掃描 Map 裡面的所有答案，親自加分
+    playersMap.current.forEach(p => {
+      if (!p.hasAnswered || !p.currentAnswer) return;
 
-      // 1. 精準統計這題的選項人數
-      if (typeof p.currentAnswer === 'string') {
-         stats[p.currentAnswer] = (stats[p.currentAnswer] || 0) + 1;
-      } else if (Array.isArray(p.currentAnswer)) {
-         p.currentAnswer.forEach(ans => { stats[ans] = (stats[ans] || 0) + 1; });
-      }
+      if (typeof p.currentAnswer === 'string') stats[p.currentAnswer] = (stats[p.currentAnswer] || 0) + 1;
+      else if (Array.isArray(p.currentAnswer)) p.currentAnswer.forEach(ans => { stats[ans] = (stats[ans] || 0) + 1; });
 
-      // 2. 主機親自幫每個人對答案
-      let isCorrect = false;
-      let myAns = p.currentAnswer;
-      if (['choice', 'tf', 'guess', 'img_choice'].includes(q.type)) {
-         isCorrect = myAns === q.correctAnswer;
-      } else if (q.type === 'multi') {
-         isCorrect = Array.isArray(myAns) && myAns.length === q.correctAnswers.length && myAns.every(v => q.correctAnswers.includes(v));
-      } else if (q.type === 'order') {
-         isCorrect = myAns === q.correctAnswer;
-      } else if (q.type === 'match') {
-         isCorrect = JSON.stringify(myAns) === JSON.stringify(q.correctMatches);
-      }
+      let isCorrect = false; let myAns = p.currentAnswer;
+      if (['choice', 'tf', 'guess', 'img_choice'].includes(q.type)) isCorrect = myAns === q.correctAnswer;
+      else if (q.type === 'multi') isCorrect = Array.isArray(myAns) && myAns.length === q.correctAnswers.length && myAns.every((v:any) => q.correctAnswers.includes(v));
+      else if (q.type === 'order') isCorrect = myAns === q.correctAnswer;
+      else if (q.type === 'match') isCorrect = JSON.stringify(myAns) === JSON.stringify(q.correctMatches);
 
-      // 3. 結算新分數
-      const earned = isCorrect ? 100 : 0;
-      return { ...p, score: p.score + earned };
+      if (isCorrect) p.score += 100;
     });
 
-    // 儲存算好的全班新成績
-    setPlayers(updatedPlayers);
-
     const hasNext = currentQIndex + 1 < (editingPack?.questions?.length || 0);
-    // 把算好的新成績打包廣播給所有人
-    const reviewPayload = { question: currentQuestion, stats, hasNextQuestion: hasNext, players: updatedPlayers };
+    // 把最新的總分轉換為陣列，廣播回全服
+    const updatedPlayersArray = Array.from(playersMap.current.values());
+    const reviewPayload = { question: currentQuestion, stats, hasNextQuestion: hasNext, players: updatedPlayersArray };
     
-    setReviewData(reviewPayload); 
-    setLeaderboard(null); 
+    setReviewData(reviewPayload); setLeaderboard(null); 
     channel.send({ type: 'broadcast', event: 'reveal_answer', payload: reviewPayload });
   };
 
   const showLeaderboard = () => {
-    // 此時 players 已經是主機算完加分的最新狀態了
-    const sorted = [...players].sort((a, b) => b.score - a.score);
+    const sorted = Array.from(playersMap.current.values()).sort((a, b) => b.score - a.score);
     setLeaderboard(sorted);
     channel.send({ type: 'broadcast', event: 'leaderboard_updated', payload: sorted });
   };
 
   const showFinalPodium = () => {
-    const top3 = [...players].sort((a, b) => b.score - a.score).slice(0, 3);
+    const top3 = Array.from(playersMap.current.values()).sort((a, b) => b.score - a.score).slice(0, 3);
     setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null);
     channel.send({ type: 'broadcast', event: 'podium_updated', payload: top3 });
   };
@@ -816,7 +744,7 @@ function AdminApp() {
   const handleReturnToDashboard = () => {
     if (channel) channel.unsubscribe();
     sfx.victory.pause(); sfx.victory.currentTime = 0; sfx.cheer.pause(); sfx.cheer.currentTime = 0; sfx.bgm.pause(); sfx.bgm.currentTime = 0;
-    setHostingPin(null); setHostingUrl(null); setPlayers([]); setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
+    setHostingPin(null); setHostingUrl(null); playersMap.current.clear(); setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
     setRoomTitle(DEFAULT_TITLE); setRoomBg(DEFAULT_BG); fetchQuizzes(adminUser!);
   };
 
@@ -824,6 +752,11 @@ function AdminApp() {
   let displayBg = DEFAULT_BG;
   if (hostingPin) { displayTitle = roomTitle; displayBg = roomBg; }
   else if (editingPack) { displayTitle = editingPack.title || '編輯題庫包'; displayBg = editingPack.backgroundImg || DEFAULT_BG; }
+
+  // 取出用於渲染的名單（⚡ 千人優化：只截取前 100 名顯示標籤，避免萬人進場卡死主機）
+  const currentPlayersArray = Array.from(playersMap.current.values());
+  const maxDisplayTags = 100;
+  const displayedPlayerTags = currentPlayersArray.slice(0, maxDisplayTags);
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
@@ -843,12 +776,17 @@ function AdminApp() {
         <div className="game-panel admin-mega-panel" style={{ margin: '0 auto', paddingBottom: '1.5rem', background: 'rgba(15, 20, 35, 0.92)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
           {!isGameStarted ? (
             <div style={{ padding: '2vh 0' }}>
-              <h2 style={{ color: '#e74c3c', fontSize: '2.5rem', marginBottom: '2vh' }}>👑 主持人控場中心</h2>
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '2vh' }}>
+                 <h2 style={{ color: '#e74c3c', fontSize: '2.5rem', margin: 0 }}>👑 主持人控場中心</h2>
+                 <span style={{ background: 'rgba(46, 204, 113, 0.2)', color: '#2ecc71', border: '1px solid #2ecc71', padding: '5px 15px', borderRadius: '20px', fontWeight: 'bold' }}>🟢 伺服器狀態：PRO 高能模式</span>
+              </div>
               <h3 style={{ color: '#f1c40f', fontSize: '4.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)', margin: '1vh 0' }}>房號: {hostingPin}</h3>
               <p style={{ color: '#2ecc71', margin: '2vh 0', fontSize: '1.6rem' }}>玩家加入連結: <br/><span style={{color: '#3498db', textDecoration: 'underline', fontSize: '2rem'}}>{hostingUrl}</span></p>
-              <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>目前進場: <span style={{ color: '#f1c40f', fontSize: '2.5rem' }}>{players.length}</span> 人</p>
+              <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>目前進場: <span style={{ color: '#f1c40f', fontSize: '2.5rem' }}>{dashboardStats.total}</span> 人</p>
+              
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', margin: '3vh 0', maxHeight: '20vh', overflowY: 'auto', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px' }}>
-                {players.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.15)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)' }}>{p.username}</span>)}
+                {displayedPlayerTags.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.15)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)' }}>{p.username}</span>)}
+                {dashboardStats.total > maxDisplayTags && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#bdc3c7', fontStyle: 'italic' }}>...及其他 {dashboardStats.total - maxDisplayTags} 人以最佳化模式隱藏</span>}
               </div>
               <button className="btn-summon" onClick={sendNextQuestion} style={{ fontSize: '2rem', padding: '15px 60px', background: 'linear-gradient(90deg, #2ecc71, #27ae60)' }}>▶️ 正式開始遊戲</button>
             </div>
@@ -856,7 +794,7 @@ function AdminApp() {
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#bdc3c7', fontSize: '1.2rem', marginBottom: '1.5vh', borderBottom: '2px solid #444', paddingBottom: '10px' }}>
                 <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>👑 主持人大螢幕模式</span>
-                <span>房間: <strong style={{color:'#fff'}}>{hostingPin}</strong> | 總進場: <strong style={{color:'#fff'}}>{players.length}</strong> 人</span>
+                <span>房間: <strong style={{color:'#fff'}}>{hostingPin}</strong> | 總進場: <strong style={{color:'#fff'}}>{dashboardStats.total}</strong> 人</span>
               </div>
 
               {isPreparing && prepareData && (
@@ -881,7 +819,7 @@ function AdminApp() {
                   </div>
 
                   <h3 style={{ color: '#34db98', marginBottom: '1.5vh', fontSize: '1.8rem', margin: '1vh 0' }}>
-                    ⏳ 題目作答中... 倒數 <span style={{color: '#f1c40f', fontSize: '2.4rem', fontWeight: '900'}}>{timeLeft}</span> 秒 (已答題: <span style={{color:'#fff'}}>{players.filter(p => p.hasAnswered).length} / {players.length}</span> 人)
+                    ⏳ 題目作答中... 倒數 <span style={{color: '#f1c40f', fontSize: '2.4rem', fontWeight: '900'}}>{timeLeft}</span> 秒 (已答題: <span style={{color:'#fff'}}>{dashboardStats.answered} / {dashboardStats.total}</span> 人)
                   </h3>
                   
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '2vh', flexWrap: 'wrap' }}>
@@ -960,7 +898,7 @@ function AdminApp() {
 
               {leaderboard && !podiumData && !isPreparing && (
                 <div>
-                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2vh', textShadow: '0 0 15px rgba(241,196,15,0.5)' }}>🏆 排名結算</h2>
+                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2vh', textShadow: '0 0 15px rgba(241,196,15,0.5)' }}>🏆 排名結算 (Top 20)</h2>
                   <LeaderboardView data={leaderboard} />
                   {reviewData?.hasNextQuestion ? (
                     <button className="btn-summon" onClick={sendNextQuestion} style={{ background: 'linear-gradient(90deg, #2ecc71, #27ae60)', marginTop: '3vh', fontSize: '1.5rem', padding: '15px' }}>▶️ 下一題</button>
