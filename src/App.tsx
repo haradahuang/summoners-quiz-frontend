@@ -121,7 +121,6 @@ function PlayerApp() {
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(searchParams.get('pin') ? 'LOADING' : DEFAULT_BG);
 
-  // 💡 新增：準備階段狀態
   const [isPreparing, setIsPreparing] = useState(false);
   const [prepareData, setPrepareData] = useState<any>(null);
   const [prepareTimeLeft, setPrepareTimeLeft] = useState(3);
@@ -134,7 +133,6 @@ function PlayerApp() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [podiumData, setPodiumData] = useState<any[] | null>(null);
 
-  // 💡 修正 BUG 2：儲存單選/是非題的玩家答案
   const [singleSelected, setSingleSelected] = useState<string>('');
   const [activeTopId, setActiveTopId] = useState<string | null>(null);
   const [userMatches, setUserMatches] = useState<Record<string, string>>({});
@@ -177,16 +175,14 @@ function PlayerApp() {
         setRoomTitle(payload.title || DEFAULT_TITLE);
         setRoomBg(payload.backgroundImg || DEFAULT_BG);
       })
-      // 💡 新增廣播：準備階段
       .on('broadcast', { event: 'prepare_question' }, ({ payload }) => {
         setIsPreparing(true); setPrepareData(payload); setPrepareTimeLeft(3);
         setAnswerResult(null); setLeaderboard(null); setReviewData(null); setPodiumData(null); setCurrentQuestion(null);
-        // 清空所有上一題的答題紀錄
         setSingleSelected(''); setUserMatches({}); setActiveTopId(null); setMultiSelected([]); setOrderState([]); setHasAnswered(false);
         quizRoom.track({ score: myScore, hasAnswered: false });
       })
       .on('broadcast', { event: 'receive_question' }, ({ payload }) => {
-        setIsPreparing(false); // 關閉準備畫面
+        setIsPreparing(false);
         const q = payload;
         if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
         if (q.type === 'order' && q.options) setOrderState([...q.options].sort(() => Math.random() - 0.5));
@@ -201,7 +197,7 @@ function PlayerApp() {
         if (currentQuestion?.type === 'match') myAns = userMatches;
         else if (currentQuestion?.type === 'multi') myAns = multiSelected;
         else if (currentQuestion?.type === 'order') myAns = orderState.map(o => o.id).join(',');
-        else myAns = singleSelected; // 💡 修正 BUG 2：將玩家單選的答案取出比對！
+        else myAns = singleSelected; 
 
         if (['choice', 'tf', 'guess', 'img_choice'].includes(q.type)) {
           isCorrect = myAns === q.correctAnswer;
@@ -235,7 +231,6 @@ function PlayerApp() {
     return () => { quizRoom.unsubscribe(); };
   }, [isJoined, pin, username, currentQuestion, userMatches, multiSelected, orderState, myScore, singleSelected]);
 
-  // 玩家端：準備倒數計時器
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (isPreparing && prepareTimeLeft > 0) {
@@ -244,7 +239,6 @@ function PlayerApp() {
     return () => clearTimeout(timerId);
   }, [isPreparing, prepareTimeLeft]);
 
-  // 玩家端：正式作答倒數計時器
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (currentQuestion && timeLeft > 0 && !hasAnswered && !leaderboard && !reviewData && !podiumData && !isPreparing) {
@@ -256,7 +250,7 @@ function PlayerApp() {
       setHasAnswered(true);
       if (channel) {
          channel.track({ score: myScore, hasAnswered: true });
-         channel.send({ type: 'broadcast', event: 'player_answered', payload: { username } }); // 時間到強制送出
+         channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: null } }); 
       }
     }
     return () => clearTimeout(timerId);
@@ -264,25 +258,24 @@ function PlayerApp() {
 
   const handleJoinArena = () => { if (username.trim() && pin.trim()) { setIsJoined(true); unlockAudio(); } };
   
-  // 💡 修正 BUG 1：額外發送 player_answered 廣播，讓主持人畫面零延遲更新
-  const submitPlayerAnswer = () => {
+  // 💡 修正 BUG 2：確實把使用者的答案打包送給伺服器，不要讓系統瞎猜
+  const submitPlayerAnswer = (actualAnswer: any) => {
     setHasAnswered(true);
     if (channel) {
       channel.track({ score: myScore, hasAnswered: true });
-      channel.send({ type: 'broadcast', event: 'player_answered', payload: { username } });
+      channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: actualAnswer } });
     }
   };
 
-  const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setSingleSelected(answerId); submitPlayerAnswer(); } };
+  const handleChoiceClick = (answerId: string) => { if (!hasAnswered) { setSingleSelected(answerId); submitPlayerAnswer(answerId); } };
   const toggleMultiSelect = (optId: string) => { if (hasAnswered) return; setMultiSelected(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]); };
-  const handleMultiSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(); } };
+  const handleMultiSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(multiSelected); } };
   const moveOrderUp = (index: number) => { if (index === 0 || hasAnswered) return; const newArr = [...orderState]; [newArr[index - 1], newArr[index]] = [newArr[index], newArr[index - 1]]; setOrderState(newArr); };
   const moveOrderDown = (index: number) => { if (index === orderState.length - 1 || hasAnswered) return; const newArr = [...orderState]; [newArr[index + 1], newArr[index]] = [newArr[index], newArr[index + 1]]; setOrderState(newArr); };
-  const handleOrderSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(); } };
-  const handleMatchSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(); } };
+  const handleOrderSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(orderState.map(o => o.id).join(',')); } };
+  const handleMatchSubmit = () => { if (!hasAnswered) { submitPlayerAnswer(userMatches); } };
   const handleTopClick = (id: string) => { setActiveTopId(id === activeTopId ? null : id); setUserMatches(prev => { const newMatches = { ...prev }; if (newMatches[id]) delete newMatches[id]; return newMatches; }); };
   const handleBottomClick = (bottomId: string) => { setUserMatches(prev => { const newMatches = { ...prev }; let existingTopKey = null; for (const key in newMatches) { if (newMatches[key] === bottomId) existingTopKey = key; } if (activeTopId) { if (existingTopKey) delete newMatches[existingTopKey]; newMatches[activeTopId] = bottomId; setActiveTopId(null); } else { if (existingTopKey) delete newMatches[existingTopKey]; } return newMatches; }); };
-
   const handleReturnToDashboard = () => { window.location.reload(); };
 
   const sortedPlayers = [...(players || [])].sort((a, b) => b.score - a.score);
@@ -521,7 +514,6 @@ function AdminApp() {
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(DEFAULT_BG);
   
-  // 💡 新增：準備階段狀態 (Host)
   const [isPreparing, setIsPreparing] = useState(false);
   const [prepareData, setPrepareData] = useState<any>(null);
   const [prepareTimeLeft, setPrepareTimeLeft] = useState(3);
@@ -557,7 +549,6 @@ function AdminApp() {
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [hostingPin, podiumData]);
 
-  // 主持人端：準備倒數計時器
   useEffect(() => {
     let prepTimer: ReturnType<typeof setTimeout>;
     if (isPreparing && prepareTimeLeft > 0) {
@@ -565,12 +556,11 @@ function AdminApp() {
        sfx.tick.currentTime = 0; sfx.tick.play().catch(()=>{});
     } else if (isPreparing && prepareTimeLeft === 0) {
        setIsPreparing(false);
-       sendNextQuestionActual(); // 時間到，自動發送題目
+       sendNextQuestionActual(); 
     }
     return () => clearTimeout(prepTimer);
   }, [isPreparing, prepareTimeLeft]);
 
-  // 主持人端：正式作答倒數計時器
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout>;
     if (currentQuestion && timeLeft > 0 && !leaderboard && !reviewData && !podiumData && !isPreparing) {
@@ -606,7 +596,6 @@ function AdminApp() {
     hostChannel
       .on('presence', { event: 'sync' }, () => {
         const state = hostChannel.presenceState();
-        // 更新玩家列表，但不覆蓋已存在的答題狀態 (避免狀態倒退)
         setPlayers(prev => {
           const newList = Object.keys(state).map(key => ({ username: key, score: state[key][0]?.score || 0, hasAnswered: state[key][0]?.hasAnswered || false }));
           return newList.map(newP => { const oldP = prev.find(p => p.username === newP.username); return oldP?.hasAnswered ? { ...newP, hasAnswered: true } : newP; });
@@ -615,9 +604,9 @@ function AdminApp() {
       .on('broadcast', { event: 'player_joined' }, () => {
         hostChannel.send({ type: 'broadcast', event: 'room_info', payload: { title: pack.title, backgroundImg: pack.backgroundImg } });
       })
-      // 💡 修正 BUG 1：監聽專屬廣播，零延遲更新該玩家的「已答題」狀態
+      // 💡 修正 BUG 1：監聽真實玩家答案的廣播，實現零延遲更新畫面與記錄實際答案
       .on('broadcast', { event: 'player_answered' }, ({ payload }) => {
-        setPlayers(prev => prev.map(p => p.username === payload.username ? { ...p, hasAnswered: true } : p));
+        setPlayers(prev => prev.map(p => p.username === payload.username ? { ...p, hasAnswered: true, currentAnswer: payload.answer } : p));
       });
 
     hostChannel.subscribe(async (status) => {
@@ -626,21 +615,21 @@ function AdminApp() {
     setChannel(hostChannel);
   };
 
-  // 💡 修正 BUG 3：按下下一題時，先觸發 PREPARE 階段
   const sendNextQuestion = () => {
     if (!editingPack || !editingPack.questions || editingPack.questions.length <= currentQIndex) return;
     const q = editingPack.questions[currentQIndex];
     const prepPayload = { type: q.type, currentQIndex: currentQIndex + 1, totalQuestions: editingPack.questions.length };
 
+    // 💡 修正 BUG 3：準備階段廣播
     setIsPreparing(true);
     setPrepareTimeLeft(3);
     setPrepareData(prepPayload);
     setLeaderboard(null); setReviewData(null); setPodiumData(null); setCurrentQuestion(null);
+    setPlayers(prev => prev.map(p => ({ ...p, hasAnswered: false, currentAnswer: null })));
 
     channel.send({ type: 'broadcast', event: 'prepare_question', payload: prepPayload });
   };
 
-  // 3秒倒數結束後，真正發送題目
   const sendNextQuestionActual = () => {
     const q = editingPack.questions[currentQIndex];
     const qPayload = { ...q, currentQIndex: currentQIndex + 1, totalQuestions: editingPack.questions.length };
@@ -655,12 +644,18 @@ function AdminApp() {
   };
 
   const showReviewAnswer = () => {
+    // 💡 修正結算：徹底拔除假數據，改用玩家真實填寫的 currentAnswer 來統計！
     const stats: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, O: 0, X: 0 };
-    players.forEach(() => {
-      const opts = ['A', 'B', 'C', 'D'];
-      const randOpt = opts[Math.floor(Math.random() * opts.length)];
-      stats[randOpt] = (stats[randOpt] || 0) + 1;
+    players.forEach((p) => {
+      if (p.hasAnswered && p.currentAnswer) {
+        if (typeof p.currentAnswer === 'string') {
+           stats[p.currentAnswer] = (stats[p.currentAnswer] || 0) + 1;
+        } else if (Array.isArray(p.currentAnswer)) {
+           p.currentAnswer.forEach(ans => { stats[ans] = (stats[ans] || 0) + 1; });
+        }
+      }
     });
+
     const hasNext = currentQIndex + 1 < (editingPack?.questions?.length || 0);
     const reviewPayload = { question: currentQuestion, stats, hasNextQuestion: hasNext };
     setReviewData(reviewPayload); setLeaderboard(null);
@@ -829,7 +824,6 @@ function AdminApp() {
                 <span>房間: <strong style={{color:'#fff'}}>{hostingPin}</strong> | 總進場: <strong style={{color:'#fff'}}>{players.length}</strong> 人</span>
               </div>
 
-              {/* 💡 主持人端：準備階段提示 */}
               {isPreparing && prepareData && (
                 <div className="question-transition" style={{ padding: '5vh 0' }}>
                    <h2 style={{ fontSize: '3.5rem', color: '#bdc3c7', marginBottom: '3vh', letterSpacing: '3px' }}>⚔️ 準備迎接挑戰</h2>
@@ -951,7 +945,6 @@ function AdminApp() {
     );
   }
 
-  // 👑 【題庫編輯器】
   if (editingPack) {
     return (
       <PageLayout title={displayTitle} bgImg={displayBg}>
@@ -1112,7 +1105,6 @@ function AdminApp() {
     );
   }
 
-  // 👑 【創作者儀表板】
   return (
     <PageLayout title={displayTitle} bgImg={displayBg}>
       <div className="game-panel login-panel admin-mega-panel" style={{ margin: '0 auto', background: 'rgba(15, 20, 35, 0.9)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
@@ -1211,6 +1203,7 @@ export default function App() {
           color: #FFF !important;
         }
 
+        /* 新增：準備階段的呼吸燈特效 */
         @keyframes pulse {
           0% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.1); opacity: 0.8; }
