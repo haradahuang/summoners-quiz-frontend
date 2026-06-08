@@ -20,7 +20,6 @@ export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?:
   const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
-  // 💡 修改點：大幅加深底圖的漸層遮罩，讓文字與UI更清楚，並保持電競深色質感
   const gradient = finalBg 
     ? `linear-gradient(to bottom, rgba(10, 15, 30, 0.75) 0%, rgba(5, 5, 10, 0.98) 100%)`
     : `radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)`;
@@ -29,7 +28,16 @@ export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?:
     <div className="page-layout-wrapper" style={{ backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient }}>
       {displayTitle !== "" && bgImg !== 'LOADING' && (
         <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '2vh' }}>
-          <h1 className="text-glow" style={{ fontSize: 'clamp(1.8rem, 5vw, 3.5rem)', margin: 0, padding: '0 15px', letterSpacing: '2px', textShadow: '0 4px 10px rgba(0,0,0,0.8)' }}>
+          {/* 💡 修改點 1：拔除漸層，改用純白字體 + 黃色描邊，確保最高清晰度 */}
+          <h1 style={{ 
+            fontSize: 'clamp(1.8rem, 5vw, 3.5rem)', 
+            margin: 0, 
+            padding: '0 15px', 
+            letterSpacing: '2px', 
+            color: '#FFFFFF', 
+            WebkitTextStroke: '1.5px #FFD700',
+            textShadow: '0 4px 10px rgba(0,0,0,0.8)'
+          }}>
             {displayTitle}
           </h1>
         </div>
