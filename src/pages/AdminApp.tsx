@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase, sfx, unlockAudio, topColors, qTypeLabels, qTypeColors, DEFAULT_TITLE, DEFAULT_BG } from '../config';
+// 💡 修正打包錯誤：移除了未使用的 topColors 引入
+import { supabase, sfx, unlockAudio, qTypeLabels, qTypeColors, DEFAULT_TITLE, DEFAULT_BG } from '../config';
 import { PageLayout, LeaderboardView } from '../components';
 
 // 💡 集中管理各題型的作答提示 (大螢幕同步顯示)
-// 💡 修改點：更新了 match (圖片配對題) 的提示文字
 const qTypeInstructions: Record<string, string> = {
   choice: '💡 準備好手速，點擊最快最正確的選項',
   img_choice: '💡 仔細看圖，選出正確答案',
@@ -11,12 +11,12 @@ const qTypeInstructions: Record<string, string> = {
   multi: '💡 點擊選取多個答案，完成後點擊下方送出',
   guess: '💡 圖片會隨時間變清晰，越快答對分數越高',
   order: '💡 由上而下排出正確順序，完成後點擊送出',
-  match: '💡 請點擊相對應的圖片進行配對'
+  match: '💡 請點擊相對應的圖片進行配對' // 💡 更新文字
 };
 
 export default function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  // 💡 修正打包錯誤：移除了未使用的 authMode 狀態
   const [username, setUsername] = useState(''); const [password, setPassword] = useState('');
   const [quizPacks, setQuizPacks] = useState<any[]>([]);
   const [editingPack, setEditingPack] = useState<any>(null); 
@@ -245,31 +245,11 @@ export default function AdminApp() {
     } else { alert(`❌ 儲存失敗！\n【原因】：${error.message}`); }
   };
 
-  const handleImageUpload = (index: number, field: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
-    const reader = new FileReader(); reader.onload = (event) => { const newPairs = [...matchPairs]; newPairs[index] = { ...newPairs[index], [field]: event.target?.result as string }; setMatchPairs(newPairs); }; reader.readAsDataURL(file);
-  };
-
-  const handleGuessImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
-    const reader = new FileReader(); reader.onload = (event) => { setNewGuessImg(event.target?.result as string); }; reader.readAsDataURL(file);
-  };
-  
-  const handleAnswerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
-    const reader = new FileReader(); reader.onload = (event) => { setNewAnswerImg(event.target?.result as string); }; reader.readAsDataURL(file);
-  };
-
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const type = e.target.value as 'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order' | 'img_choice';
     setQType(type);
     if (type === 'tf') setNewTime(5); else if (type === 'match' || type === 'order') setNewTime(30); else if (type === 'guess') setNewTime(12); else if (type === 'img_choice') setNewTime(15); else setNewTime(10);
   };
-
-  const toggleMultiAnsEditor = (val: string) => { setNewMultiAns(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]); };
 
   const handleEditQuestion = (q: any) => {
     setEditingQuestionId(q.id); setQType(q.type); setNewQText(q.text); setNewTime(q.timeLimit);
@@ -409,7 +389,6 @@ export default function AdminApp() {
                      {qTypeLabels[prepareData.type]}
                    </div>
                    
-                   {/* 💡 主持大螢幕同步顯示作答提示 */}
                    <div style={{ background: 'rgba(0,0,0,0.5)', padding: '15px 30px', borderRadius: '15px', display: 'inline-block', marginBottom: '3vh', border: '2px solid rgba(241, 196, 15, 0.4)' }}>
                      <p style={{ color: '#f1c40f', fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>
                        {qTypeInstructions[prepareData.type]}
