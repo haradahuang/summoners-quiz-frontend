@@ -28,15 +28,16 @@ export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?:
     <div className="page-layout-wrapper" style={{ backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient }}>
       {displayTitle !== "" && bgImg !== 'LOADING' && (
         <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '2vh' }}>
-          {/* 💡 修改點 1：拔除漸層，改用純白字體 + 黃色描邊，確保最高清晰度 */}
+          {/* 💡 修改點 1：拔除難看的外框描邊，改用雙層深陰影與更粗的純白字體，保證最高清晰度 */}
           <h1 style={{ 
-            fontSize: 'clamp(1.8rem, 5vw, 3.5rem)', 
+            fontSize: 'clamp(2.2rem, 6vw, 4rem)', 
             margin: 0, 
             padding: '0 15px', 
             letterSpacing: '2px', 
             color: '#FFFFFF', 
-            WebkitTextStroke: '1.5px #FFD700',
-            textShadow: '0 4px 10px rgba(0,0,0,0.8)'
+            fontWeight: '900',
+            fontFamily: '"Noto Sans TC", "Microsoft JhengHei", sans-serif',
+            textShadow: '0px 4px 12px rgba(0,0,0,0.95), 0px 2px 4px rgba(0,0,0,0.8)'
           }}>
             {displayTitle}
           </h1>
