@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 💡 修正打包錯誤：移除了會引發未定義錯誤的未使用引入 (如 topColors)
-import { supabase, sfx, unlockAudio, qTypeLabels, qTypeColors, DEFAULT_TITLE, DEFAULT_BG } from '../config';
+// 💡 修正：加回了 topColors，確保大螢幕配對題的顏色能正確讀取
+import { supabase, sfx, unlockAudio, topColors, qTypeLabels, qTypeColors, DEFAULT_TITLE, DEFAULT_BG } from '../config';
 import { PageLayout, LeaderboardView } from '../components';
 
-// 💡 集中管理各題型的作答提示 (大螢幕同步顯示)
 const qTypeInstructions: Record<string, string> = {
   choice: '💡 準備好手速，點擊最快最正確的選項',
   img_choice: '💡 仔細看圖，選出正確答案',
@@ -400,7 +399,7 @@ export default function AdminApp() {
                 </div>
               )}
 
-              {/* 💡 修正打包錯誤：還原靜態的大螢幕題目顯示區塊，徹底拔除玩家點擊邏輯 */}
+              {/* 💡 修正打包錯誤：徹底拔除在 AdminApp 中未定義的玩家互動邏輯（如 userMatches、onClick 等），改為純展示用的靜態介面 */}
               {currentQuestion && !reviewData && !leaderboard && !podiumData && !isPreparing && (
                 <div className="question-transition">
                   <div style={{ position: 'relative', width: '100%', height: '28px', background: 'rgba(255,255,255,0.1)', borderRadius: '14px', overflow: 'hidden', marginBottom: '1.5vh', border: '1px solid rgba(255,215,0,0.5)' }}>
@@ -431,15 +430,38 @@ export default function AdminApp() {
 
                   {(currentQuestion.type === 'choice' || currentQuestion.type === 'multi' || currentQuestion.type === 'guess' || currentQuestion.type === 'order' || currentQuestion.type === 'img_choice') && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', opacity: 0.95 }}>
-                      {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '20px', fontSize: '1.6rem', fontWeight: 'bold', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', borderLeft: `10px solid ${opt.color}`, color: '#fff', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', transition: 'transform 0.2s' }}>{opt.text}</div>))}
+                      {currentQuestion.options?.map((opt: any) => (<div key={opt.id} style={{ padding: '20px', fontSize: '1.6rem', fontWeight: 'bold', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', borderLeft: `10px solid ${opt.color}`, color: '#fff', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>{opt.text}</div>))}
                     </div>
                   )}
+
                   {currentQuestion.type === 'tf' && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', opacity: 0.95 }}>
                       <div style={{ padding: '25px', background: 'linear-gradient(145deg, #00e673, #00b359)', borderRadius: '15px', color: '#ffffff', textAlign:'center', fontSize:'4.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 8px 0 #008040, 0 10px 15px rgba(0,0,0,0.4)', textShadow: '0 4px 8px rgba(0,0,0,0.3)' }}>O</div>
                       <div style={{ padding: '25px', background: 'linear-gradient(145deg, #ff4d4d, #e60000)', borderRadius: '15px', color: '#ffffff', textAlign:'center', fontSize:'4.5rem', fontFamily: 'Arial, sans-serif', fontWeight: '900', boxShadow: '0 8px 0 #b30000, 0 10px 15px rgba(0,0,0,0.4)', textShadow: '0 4px 8px rgba(0,0,0,0.3)' }}>X</div>
                     </div>
                   )}
+
+                  {/* 💡 修正打包錯誤：主持端的圖片配對題改為純靜態顯示 */}
+                  {currentQuestion.type === 'match' && (
+                    <div>
+                      <div className="match-grid">
+                        {(currentQuestion.topItems || []).map((item: any) => (
+                          <div key={item.id} className="match-item" style={{ background: 'rgba(30, 40, 60, 0.8)', border: `2px solid ${topColors[item.id] || '#fff'}` }}>
+                            <img src={item.img} alt="top" referrerPolicy="no-referrer" crossOrigin="anonymous" />
+                            <p style={{ fontWeight: 'bold', color: '#FFF' }}>{item.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="match-grid">
+                        {(currentQuestion.bottomItems || []).map((item: any) => (
+                          <div key={item.id} className="match-item" style={{ background: 'rgba(30, 40, 60, 0.8)' }}>
+                            <img src={item.img} alt="bottom" referrerPolicy="no-referrer" crossOrigin="anonymous" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <button className="btn-summon" onClick={showReviewAnswer} style={{ background: 'linear-gradient(90deg, #34495e, #2c3e50)', marginTop: '3vh', fontSize: '1.4rem', padding: '15px' }}>🔍 揭曉正確答案</button>
                 </div>
               )}
