@@ -178,12 +178,11 @@ export default function PlayerApp() {
 
       {isJoined && !isPreparing && !currentQuestion && !leaderboard && !reviewData && !podiumData && (
         <div className="game-panel login-panel" style={{ width: '95%', maxWidth: '400px', margin: '15vh auto 0', textAlign: 'center' }}>
-          <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '1rem', textShadow: '0 0 10px rgba(241,196,15,0.8)' }}>房號: {pin}</h2>
+          <h2 style={{ color: '#FFD700', fontSize: '2.2rem', marginBottom: '1rem', textShadow: '0 0 10px rgba(241,196,15,0.8)' }}>房號: {pin}</h2>
           <p style={{ fontSize: '1.4rem', color: '#3498db', fontWeight: 'bold' }}>連線成功，等待主持人開始...</p> 
         </div>
       )}
 
-      {/* 💡 修改點 4：修正準備畫面過低，拔除異常留白，確保視覺完美置中 */}
       {isJoined && isPreparing && prepareData && (
         <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '2vh auto', textAlign: 'center', padding: '2rem 1rem' }}>
            <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>⚔️</div>
@@ -196,7 +195,6 @@ export default function PlayerApp() {
       {isJoined && currentQuestion && !isPreparing && !leaderboard && !reviewData && !podiumData && (
         <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '0 auto' }}>
           
-          {/* 💡 修改點 1：將頭部資訊字體放大 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1c40f', fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '15px', borderBottom: '2px solid rgba(255,215,0,0.3)', paddingBottom: '10px' }}>
             <span>👤 {username}</span><span>🏆 {myScore} 分 | 🏅 #{myRank}</span>
           </div>
@@ -207,7 +205,6 @@ export default function PlayerApp() {
           
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '10px', marginBottom: '1rem', flexDirection: 'column' }}>
             <span style={{ background: qTypeColors[currentQuestion.type] || '#7f8c8d', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '1.1rem', fontWeight: '900', alignSelf: 'flex-start' }}>{qTypeLabels[currentQuestion.type] || '未知'}</span>
-            {/* 💡 修改點 1：題目字體強制套用純白並放大至 1.8rem */}
             <h2 style={{ color: '#FFFFFF', fontSize: '1.8rem', margin: 0, textAlign: 'left', lineHeight: '1.4' }}>{currentQuestion?.text}</h2>
           </div>
           
@@ -223,20 +220,18 @@ export default function PlayerApp() {
              </div>
           )}
 
-          {/* 💡 修改點 2：拔除原始按鈕，一但回答完畢直接替換為毛玻璃特效的「巨型等待卡片」 */}
           {hasAnswered ? (
-            <div style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)', padding: '2.5rem 1rem', borderRadius: '20px', border: '1px solid rgba(255,215,0,0.4)', animation: 'pulse 2s infinite', marginTop: '1rem', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-               <div style={{ fontSize: '4rem', marginBottom: '10px' }}>⏳</div>
-               <h3 style={{ color: '#FFD700', fontSize: '2.2rem', margin: '0 0 10px 0', textShadow: '0 2px 5px rgba(0,0,0,0.8)' }}>答案已記錄</h3>
-               <p style={{ color: '#FFFFFF', fontSize: '1.2rem', margin: 0, fontWeight: 'bold' }}>請鎖定大螢幕，等待揭曉！</p>
+            // 💡 修改點 2：縮小等待畫面的圖示與字體，讓排版更精緻
+            <div style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)', padding: '2rem 1rem', borderRadius: '20px', border: '1px solid rgba(255,215,0,0.4)', animation: 'pulse 2s infinite', marginTop: '1rem', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+               <div style={{ fontSize: '3rem', marginBottom: '5px' }}>⏳</div>
+               <h3 style={{ color: '#FFD700', fontSize: '1.8rem', margin: '0 0 8px 0', textShadow: '0 2px 5px rgba(0,0,0,0.8)' }}>已答題</h3>
+               <p style={{ color: '#FFFFFF', fontSize: '1rem', margin: 0, fontWeight: 'bold' }}>請稍待公布答案！</p>
             </div>
           ) : (
             <>
-              {/* 以下為未回答時的各題型選項渲染 */}
               {(currentQuestion?.type === 'choice' || currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   {(currentQuestion?.options || []).map((opt: any) => (
-                    // 💡 修改點 1：選項字體放大並強制純白
                     <button key={opt.id} onClick={() => handleChoiceClick(opt.id)} style={{ padding: '1.2rem 1rem', fontSize: '1.4rem', fontWeight: 'bold', color: '#FFFFFF', background: 'rgba(30, 40, 60, 0.8)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', borderLeft: `8px solid ${opt.color}`, cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', transition: 'transform 0.1s' }}>{opt.text}</button>
                   ))}
                 </div>
@@ -315,7 +310,6 @@ export default function PlayerApp() {
       {isJoined && reviewData && !leaderboard && !podiumData && (
         <div className="game-panel" style={{ width: '95%', maxWidth: '600px', margin: '0 auto', paddingBottom: '1rem', textAlign: 'center' }}>
           
-          {/* 💡 修改點 3：使用絕對獨立的 div 區塊，在物理層面強制斷行，並且分數超級放大 */}
           <div style={{ marginBottom: '25px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: answerResult?.isCorrect ? '#2ecc71' : '#ff4d4d' }}>
               {answerResult?.isCorrect ? '🟢 答對了！' : '🔴 答錯了！'}
