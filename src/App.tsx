@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom'
 import { createClient } from '@supabase/supabase-js';
 import './index.css';
 
-// 🌐 Supabase Pro 憑證設定
+// 🌐 Supabase 憑證設定
 const RAW_SUPABASE_URL = 'https://kxungtkticxfnqmbdzlq.supabase.co/rest/v1/'; // 貼這裡
 const SUPABASE_ANON_KEY = 'sb_publishable_1J5xq2_aA5M1TJNk3CADAw_sFIuJ5Q7'; // 貼這裡
 
@@ -75,7 +75,7 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
 };
 
 // ==========================================
-// 🏆 排行榜組件 (千人效能優化版：僅渲染 Top 20)
+// 🏆 排行榜組件
 // ==========================================
 let globalLastLeaderboard: any[] = [];
 const LeaderboardView = ({ data }: { data: any[] }) => {
@@ -111,7 +111,7 @@ const LeaderboardView = ({ data }: { data: any[] }) => {
 };
 
 // ==========================================
-// 🎮 玩家端介面 (剝奪計分權，只負責發送毫秒級答案)
+// 🎮 玩家端介面
 // ==========================================
 function PlayerApp() {
   const [searchParams] = useSearchParams();
@@ -144,7 +144,6 @@ function PlayerApp() {
   const [channel, setChannel] = useState<any>(null);
   const [myScore, setMyScore] = useState(0);
 
-  // ⚡ 核心升級：毫秒級碼表 Ref，精準記錄千人作答微小差異
   const questionStartTimeRef = useRef<number>(0);
 
   const scoreRef = useRef(0);
@@ -191,9 +190,7 @@ function PlayerApp() {
         if (q.type === 'match' && q.bottomItems) q.bottomItems = q.bottomItems.sort(() => Math.random() - 0.5);
         if (q.type === 'order' && q.options) setOrderState([...q.options].sort(() => Math.random() - 0.5));
         
-        // ⚡ 題目顯示的瞬間，立刻啟動毫秒碼表
         questionStartTimeRef.current = Date.now();
-        
         setCurrentQuestion(q); setTimeLeft(q?.timeLimit || 15); setHasAnswered(false); 
       })
       .on('broadcast', { event: 'reveal_answer' }, ({ payload }) => {
@@ -210,7 +207,6 @@ function PlayerApp() {
         else if (q.type === 'order') isCorrect = myAns === q.correctAnswer;
         else if (q.type === 'match') isCorrect = JSON.stringify(myAns) === JSON.stringify(q.correctMatches);
 
-        // 👑 強制讀取主機結算給我的最新分數與獲得積分
         const me = hostPlayers.find((p: any) => p.username === username);
         if (me) setMyScore(me.score);
 
@@ -248,7 +244,6 @@ function PlayerApp() {
     if (timeLeft === 0 && currentQuestion && !hasAnswered && !isPreparing) {
       setHasAnswered(true);
       if (channel) {
-         // 時間到沒答完，耗時算極限（等於沒分）
          const maxTimeMs = (currentQuestion.timeLimit || 15) * 1000;
          channel.send({ type: 'broadcast', event: 'player_answered', payload: { username, answer: null, responseTimeMs: maxTimeMs } }); 
       }
@@ -258,7 +253,6 @@ function PlayerApp() {
 
   const handleJoinArena = () => { if (username.trim() && pin.trim()) { setIsJoined(true); unlockAudio(); } };
   
-  // ⚡ 核心升級：送出答案時，精算花費的「毫秒數」並打包送出！
   const submitPlayerAnswer = (actualAnswer: any) => {
     setHasAnswered(true);
     if (channel) {
@@ -458,7 +452,7 @@ function PlayerApp() {
 }
 
 // ==========================================
-// 👑 專屬管理端介面 (千人級別效能優化 Buffer + 毫秒級手速計分)
+// 👑 專屬管理端介面 
 // ==========================================
 function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
@@ -573,7 +567,6 @@ function AdminApp() {
         if (p) {
            p.hasAnswered = true;
            p.currentAnswer = payload.answer;
-           // ⚡ 主機確實記錄玩家真實送出的毫秒數
            p.responseTimeMs = payload.responseTimeMs || 0; 
         }
       });
@@ -601,10 +594,9 @@ function AdminApp() {
     channel.send({ type: 'broadcast', event: 'receive_question', payload: qPayload });
   };
 
-  // ⚡ 終極高精度手速計分演算法 (Base 1000 + Speed 1000)
   const showReviewAnswer = () => {
     const q = editingPack.questions[currentQIndex];
-    const timeLimitMs = (q.timeLimit || 15) * 1000; // 該題總毫秒數限制
+    const timeLimitMs = (q.timeLimit || 15) * 1000; 
     const stats: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, O: 0, X: 0 };
     
     playersMap.current.forEach(p => {
@@ -620,9 +612,7 @@ function AdminApp() {
       else if (q.type === 'match') isCorrect = JSON.stringify(myAns) === JSON.stringify(q.correctMatches);
 
       if (isCorrect) {
-         // ⚡ 1. 基礎分 1000 分
          const baseScore = 1000;
-         // ⚡ 2. 手速加分 0~1000 分。計算作答時間佔總時間的比例，越小加分越多。確保不低於0。
          const timeRatio = Math.min(1, Math.max(0, p.responseTimeMs / timeLimitMs));
          const speedBonus = Math.round((1 - timeRatio) * 1000);
          
@@ -764,11 +754,21 @@ function AdminApp() {
 
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
 
+  // 💡 修正 BUG：清空 editingPack 狀態，讓畫面回到儀表板而非編輯器
   const handleReturnToDashboard = () => {
     if (channel) channel.unsubscribe();
     sfx.victory.pause(); sfx.victory.currentTime = 0; sfx.cheer.pause(); sfx.cheer.currentTime = 0; sfx.bgm.pause(); sfx.bgm.currentTime = 0;
-    setHostingPin(null); setHostingUrl(null); playersMap.current.clear(); setCurrentQuestion(null); setLeaderboard(null); setReviewData(null); setPodiumData(null);
-    setRoomTitle(DEFAULT_TITLE); setRoomBg(DEFAULT_BG); fetchQuizzes(adminUser!);
+    setHostingPin(null); 
+    setHostingUrl(null); 
+    playersMap.current.clear(); 
+    setCurrentQuestion(null); 
+    setLeaderboard(null); 
+    setReviewData(null); 
+    setPodiumData(null);
+    setEditingPack(null); // 💡 清除編輯狀態，確保回歸列表
+    setRoomTitle(DEFAULT_TITLE); 
+    setRoomBg(DEFAULT_BG); 
+    fetchQuizzes(adminUser!);
   };
 
   let displayTitle = '創作者儀表板'; let displayBg = DEFAULT_BG;
@@ -796,13 +796,18 @@ function AdminApp() {
         <div className="game-panel admin-mega-panel" style={{ margin: '0 auto', paddingBottom: '1.5rem', background: 'rgba(15, 20, 35, 0.92)', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
           {!isGameStarted ? (
             <div style={{ padding: '2vh 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '2vh' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginBottom: '1vh' }}>
                  <h2 style={{ color: '#e74c3c', fontSize: '2.5rem', margin: 0 }}>👑 主持人控場中心</h2>
-                 <span style={{ background: 'rgba(46, 204, 113, 0.2)', color: '#2ecc71', border: '1px solid #2ecc71', padding: '5px 15px', borderRadius: '20px', fontWeight: 'bold' }}>🟢 伺服器：PRO 千人高能模式</span>
               </div>
               <h3 style={{ color: '#f1c40f', fontSize: '4.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)', margin: '1vh 0' }}>房號: {hostingPin}</h3>
-              <p style={{ color: '#2ecc71', margin: '2vh 0', fontSize: '1.6rem' }}>玩家加入連結: <br/><span style={{color: '#3498db', textDecoration: 'underline', fontSize: '2rem'}}>{hostingUrl}</span></p>
-              <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>目前進場: <span style={{ color: '#f1c40f', fontSize: '2.5rem' }}>{dashboardStats.total}</span> 人</p>
+              <p style={{ color: '#2ecc71', margin: '1vh 0', fontSize: '1.6rem' }}>玩家加入連結: <br/><span style={{color: '#3498db', textDecoration: 'underline', fontSize: '2rem'}}>{hostingUrl}</span></p>
+              
+              {/* 💡 插入自動生成的 QR Code */}
+              <div style={{ background: '#fff', padding: '10px', borderRadius: '10px', display: 'inline-block', margin: '1vh 0' }}>
+                 <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(hostingUrl || '')}`} alt="Game QR Code" style={{ width: '150px', height: '150px', display: 'block' }} />
+              </div>
+
+              <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '1vh 0' }}>目前進場: <span style={{ color: '#f1c40f', fontSize: '2.5rem' }}>{dashboardStats.total}</span> 人</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', margin: '3vh 0', maxHeight: '20vh', overflowY: 'auto', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px' }}>
                 {displayedPlayerTags.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.15)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)' }}>{p.username}</span>)}
                 {dashboardStats.total > maxDisplayTags && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#bdc3c7', fontStyle: 'italic' }}>...及其他 {dashboardStats.total - maxDisplayTags} 人</span>}
@@ -873,7 +878,7 @@ function AdminApp() {
               
               {reviewData && !leaderboard && !podiumData && !isPreparing && (
                 <div>
-                  <h2 style={{ color: '#3498db', fontSize: '2.4rem', marginBottom: '1.5vh', textShadow: '0 0 15px rgba(52, 152, 219, 0.5)' }}>正確答案 (⚡ 高精度手速積分)</h2>
+                  <h2 style={{ color: '#3498db', fontSize: '2.4rem', marginBottom: '1.5vh', textShadow: '0 0 15px rgba(52, 152, 219, 0.5)' }}>正確答案</h2>
 
                   {(reviewData.question.type === 'guess' || reviewData.question.type === 'img_choice') && (
                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5vh' }}>
