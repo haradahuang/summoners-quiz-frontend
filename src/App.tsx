@@ -79,28 +79,29 @@ const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string
 // ==========================================
 let globalLastLeaderboard: any[] = [];
 const LeaderboardView = ({ data }: { data: any[] }) => {
-  const top20Data = data.slice(0, 20);
+  // 💡 修改點：改為擷取前 5 名
+  const top5Data = data.slice(0, 5);
   
   const [displayRanks, setDisplayRanks] = useState(() => {
-    return top20Data.map((player) => {
+    return top5Data.map((player) => {
       const oldIndex = globalLastLeaderboard.findIndex(p => p.username === player.username);
-      return { ...player, currentIdx: oldIndex !== -1 ? oldIndex : top20Data.length, opacity: oldIndex !== -1 ? 1 : 0 };
+      return { ...player, currentIdx: oldIndex !== -1 ? oldIndex : top5Data.length, opacity: oldIndex !== -1 ? 1 : 0 };
     });
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => { setDisplayRanks(top20Data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 }))); globalLastLeaderboard = top20Data; }, 50);
+    const timer = setTimeout(() => { setDisplayRanks(top5Data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 }))); globalLastLeaderboard = top5Data; }, 50);
     return () => clearTimeout(timer);
   }, [data]); // eslint-disable-line
 
   return (
-    <div style={{ position: 'relative', height: `${top20Data.length * 60}px`, transition: 'height 0.3s', marginBottom: '10px' }}>
+    <div style={{ position: 'relative', height: `${top5Data.length * 60}px`, transition: 'height 0.3s', marginBottom: '10px' }}>
       {displayRanks.map((player) => {
-        const idx = player.currentIdx; const finalIdx = top20Data.findIndex(p => p.username === player.username); 
+        const idx = player.currentIdx; const finalIdx = top5Data.findIndex(p => p.username === player.username); 
         const isTop3 = finalIdx < 3; const rankColors = ['#FFD700', '#bdc3c7', '#e67e22']; const rankColor = isTop3 ? rankColors[finalIdx] : '#444';
         const fontSize = finalIdx === 0 ? '1.4rem' : finalIdx === 1 ? '1.2rem' : finalIdx === 2 ? '1.1rem' : '1rem';
         return (
-          <div key={player.username} style={{ position: 'absolute', top: `${idx * 60}px`, left: 0, width: '100%', height: '50px', opacity: player.opacity, transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 1.5rem', background: 'rgba(20, 30, 48, 0.8)', backdropFilter: 'blur(10px)', borderRadius: '10px', borderLeft: `6px solid ${rankColor}`, boxShadow: '0 4px 15px rgba(0,0,0,0.5)', zIndex: 20 - finalIdx }}>
+          <div key={player.username} style={{ position: 'absolute', top: `${idx * 60}px`, left: 0, width: '100%', height: '50px', opacity: player.opacity, transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 1.5rem', background: 'rgba(20, 30, 48, 0.8)', backdropFilter: 'blur(10px)', borderRadius: '10px', borderLeft: `6px solid ${rankColor}`, boxShadow: '0 4px 15px rgba(0,0,0,0.5)', zIndex: 5 - finalIdx }}>
             <span title={player.username} style={{ color: isTop3 ? rankColor : '#FFF', fontSize, fontWeight: isTop3 ? '900' : 'bold', transition: 'all 0.5s', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left', paddingRight: '10px' }}>#{finalIdx + 1} {player.username}</span>
             <span style={{ color: isTop3 ? rankColor : '#FFD700', fontSize, fontWeight: isTop3 ? '900' : 'bold', transition: 'all 0.5s', flexShrink: 0, textShadow: '1px 1px 2px #000' }}>{player.score} 分</span>
           </div>
@@ -281,7 +282,6 @@ function PlayerApp() {
         <div className="game-panel login-panel" style={{ width: '95%', maxWidth: '400px', margin: '15vh auto 0', background: 'rgba(10, 15, 30, 0.85)' }}>
           <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', fontSize: '2rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>進入競技場</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
-          {/* 💡 修正 BUG：加入 maxLength={8} 並防呆攔截惡意貼上 */}
           <input type="text" placeholder="您的召喚師暱稱 (限8字)" value={username} maxLength={8} onChange={(e) => setUsername(e.target.value.slice(0, 8))} className="game-input" />
           <button className="btn-summon" onClick={handleJoinArena} style={{ background: 'linear-gradient(90deg, #f39c12, #e67e22)' }}>Ready!</button> 
         </div>
@@ -436,14 +436,28 @@ function PlayerApp() {
          </div>
       )}
 
+      {/* 💡 修改點：玩家端的頒獎台支援 Top 10，並凸顯第一名 */}
       {isJoined && podiumData && (
         <div className="game-panel" style={{ width: '95%', maxWidth: '600px', margin: '0 auto', animation: 'bounceIn 1s ease', position: 'relative' }}>
           <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
           <div className="podium-content">
             <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2rem' }}>🏆 傳奇誕生 🏆</h2>
-            {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '2.2rem'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.2rem'}}>({podiumData[0].score}分)</span></h3>}
-            {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '1.6rem'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1rem'}}>({podiumData[1]?.score}分)</span></h4>}
-            {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '1.4rem'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'0.9rem'}}>({podiumData[2]?.score}分)</span></h4>}
+            {podiumData.map((p, idx) => {
+              if (idx === 0) {
+                return (
+                  <h3 key={p.username} style={{color: '#f1c40f', fontSize: '2.2rem', margin: '10px 0', textShadow: '0 2px 4px rgba(0,0,0,0.8)'}}>
+                    🥇 {p.username} <span style={{fontSize:'1.2rem'}}>({p.score}分)</span>
+                  </h3>
+                );
+              }
+              const icons = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+              const color = idx === 1 ? '#bdc3c7' : idx === 2 ? '#e67e22' : '#ecf0f1';
+              return (
+                <h4 key={p.username} style={{color, fontSize: '1.3rem', margin: '5px 0', fontWeight: 'bold'}}>
+                  {icons[idx]} {p.username} <span style={{fontSize:'0.9rem'}}>({p.score}分)</span>
+                </h4>
+              );
+            })}
           </div>
           <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: 'linear-gradient(90deg, #3498db, #2980b9)', marginTop: '30px' }}>🏠 返回大廳</button>
         </div>
@@ -464,7 +478,7 @@ function AdminApp() {
   
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false); // 💡 新增：複製連結狀態
+  const [copied, setCopied] = useState(false);
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(DEFAULT_BG);
   
@@ -486,8 +500,8 @@ function AdminApp() {
   const [matchPairs, setMatchPairs] = useState([{ tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }]);
 
   const playersMap = useRef(new Map<string, any>());
-  const tickCount = useRef(0); // 💡 新增：節流計時器，防抖動用
-  const [displayTags, setDisplayTags] = useState<string[]>([]); // 💡 新增：負責渲染的精簡名單
+  const tickCount = useRef(0); 
+  const [displayTags, setDisplayTags] = useState<string[]>([]); 
   const [dashboardStats, setDashboardStats] = useState({ total: 0, answered: 0 });
 
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -505,7 +519,6 @@ function AdminApp() {
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [hostingPin, podiumData]);
 
-  // 💡 修正 BUG：重新打造節流器，每 2 秒才隨機抽換畫面上的名單，防止破版與當機閃爍
   useEffect(() => {
     if (!hostingPin) return;
     const interval = setInterval(() => {
@@ -515,10 +528,10 @@ function AdminApp() {
       setDashboardStats({ total, answered });
 
       if (allNames.length <= 16) {
-         setDisplayTags(allNames); // 未滿 16 人直接顯示
+         setDisplayTags(allNames); 
       } else {
          tickCount.current++;
-         if (tickCount.current % 4 === 0) { // 每 4 個 tick (2秒) 洗牌一次，保持動態感但不會閃爍
+         if (tickCount.current % 4 === 0) { 
             setDisplayTags([...allNames].sort(() => 0.5 - Math.random()).slice(0, 16));
          }
       }
@@ -654,10 +667,11 @@ function AdminApp() {
     channel.send({ type: 'broadcast', event: 'leaderboard_updated', payload: sorted });
   };
 
+  // 💡 修改點：最終頒獎台從截取前 3 名擴展到前 10 名
   const showFinalPodium = () => {
-    const top3 = Array.from(playersMap.current.values()).sort((a, b) => b.score - a.score).slice(0, 3);
-    setPodiumData(top3); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null);
-    channel.send({ type: 'broadcast', event: 'podium_updated', payload: top3 });
+    const top10 = Array.from(playersMap.current.values()).sort((a, b) => b.score - a.score).slice(0, 10);
+    setPodiumData(top10); setReviewData(null); setLeaderboard(null); setCurrentQuestion(null);
+    channel.send({ type: 'broadcast', event: 'podium_updated', payload: top10 });
   };
 
   const handleDeletePack = async (packId: string) => {
@@ -812,7 +826,6 @@ function AdminApp() {
               </div>
               <h3 style={{ color: '#f1c40f', fontSize: '4.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)', margin: '1vh 0' }}>房號: {hostingPin}</h3>
               
-              {/* 💡 修正 BUG：隱藏落落長的網址，改為帥氣的複製按鈕 */}
               <div style={{ margin: '2vh 0' }}>
                 <button className="btn-copy" onClick={() => {
                    if(hostingUrl) {
@@ -831,7 +844,6 @@ function AdminApp() {
 
               <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '1vh 0' }}>目前進場: <span style={{ color: '#f1c40f', fontSize: '2.5rem' }}>{dashboardStats.total}</span> 人</p>
               
-              {/* 💡 修正 BUG：強制高度約束，最多兩行，且使用 setDisplayTags 節流器動態替換名單 */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', margin: '3vh 0', minHeight: '80px', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px' }}>
                 {displayTags.map((pName, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.15)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', transition: 'all 0.5s ease', animation: 'bounceIn 0.3s' }}>{pName}</span>)}
                 {dashboardStats.total > 16 && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#bdc3c7', fontStyle: 'italic' }}>...及其他 {dashboardStats.total - 16} 名召喚師</span>}
@@ -945,9 +957,10 @@ function AdminApp() {
                 </div>
               )}
 
+              {/* 💡 修改點：管理端對應改為 Top 5 */}
               {leaderboard && !podiumData && !isPreparing && (
                 <div>
-                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2vh', textShadow: '0 0 15px rgba(241,196,15,0.5)' }}>🏆 排名結算 (Top 20)</h2>
+                  <h2 style={{ color: '#FFD700', fontSize: '2.5rem', marginBottom: '2vh', textShadow: '0 0 15px rgba(241,196,15,0.5)' }}>🏆 排名結算 (Top 5)</h2>
                   <LeaderboardView data={leaderboard} />
                   {reviewData?.hasNextQuestion ? (
                     <button className="btn-summon" onClick={sendNextQuestion} style={{ background: 'linear-gradient(90deg, #2ecc71, #27ae60)', marginTop: '3vh', fontSize: '1.5rem', padding: '15px' }}>▶️ 下一題</button>
@@ -957,14 +970,28 @@ function AdminApp() {
                 </div>
               )}
 
+              {/* 💡 修改點：管理端的頒獎台支援 Top 10，並凸顯第一名 */}
               {podiumData && (
                 <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
-                  <div className="podium-content">
+                  <div className="podium-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <h2 style={{ color: '#FFD700', fontSize: '4rem', marginBottom: '2vh', textShadow: '0 0 20px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-                    {podiumData[0] && <h3 style={{color: '#f1c40f', fontSize: '3.5rem', textShadow: '0 4px 8px rgba(0,0,0,0.8)', margin: '1vh 0'}}>🥇 {podiumData[0].username} <span style={{fontSize:'1.8rem'}}>({podiumData[0].score}分)</span></h3>}
-                    {podiumData[1] && <h4 style={{color: '#bdc3c7', fontSize: '2.5rem', textShadow: '0 3px 6px rgba(0,0,0,0.8)', margin: '1vh 0'}}>🥈 {podiumData[1]?.username} <span style={{fontSize:'1.4rem'}}>({podiumData[1]?.score}分)</span></h4>}
-                    {podiumData[2] && <h4 style={{color: '#e67e22', fontSize: '2rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)', margin: '1vh 0'}}>🥉 {podiumData[2]?.username} <span style={{fontSize:'1.2rem'}}>({podiumData[2]?.score}分)</span></h4>}
+                    {podiumData.map((p, idx) => {
+                      if (idx === 0) {
+                        return (
+                          <h3 key={p.username} style={{color: '#f1c40f', fontSize: '3.5rem', textShadow: '0 4px 8px rgba(0,0,0,0.8)', margin: '1.5vh 0'}}>
+                            🥇 {p.username} <span style={{fontSize:'1.8rem'}}>({p.score}分)</span>
+                          </h3>
+                        );
+                      }
+                      const icons = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+                      const color = idx === 1 ? '#bdc3c7' : idx === 2 ? '#e67e22' : '#ecf0f1';
+                      return (
+                        <h4 key={p.username} style={{color, fontSize: '2rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)', margin: '0.8vh 0', fontWeight: 'bold'}}>
+                          {icons[idx]} {p.username} <span style={{fontSize:'1.2rem'}}>({p.score}分)</span>
+                        </h4>
+                      );
+                    })}
                   </div>
                   <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: 'linear-gradient(90deg, #3498db, #2980b9)', marginTop: '4vh', position: 'relative', zIndex: 10, fontSize: '1.5rem', padding: '15px 30px' }}>🏠 結束並返回大廳</button>
                 </div>
