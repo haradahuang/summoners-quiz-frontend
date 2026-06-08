@@ -10,7 +10,7 @@ const qTypeInstructions: Record<string, string> = {
   multi: '💡 點擊選取多個答案，完成後點擊下方送出',
   guess: '💡 圖片會隨時間變清晰，越快答對分數越高',
   order: '💡 由上而下排出正確順序，完成後點擊送出',
-  match: '💡 先點擊上方魔靈，再點擊下方圖片進行配對'
+  match: '💡 點擊相對應的圖片，進行正確配對'
 };
 
 export default function AdminApp() {
