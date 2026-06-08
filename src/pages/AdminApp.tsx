@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 💡 修正打包錯誤：移除了未使用的 topColors 引入
+// 💡 修正打包錯誤：移除了會引發未定義錯誤的未使用引入 (如 topColors)
 import { supabase, sfx, unlockAudio, qTypeLabels, qTypeColors, DEFAULT_TITLE, DEFAULT_BG } from '../config';
 import { PageLayout, LeaderboardView } from '../components';
 
@@ -11,12 +11,11 @@ const qTypeInstructions: Record<string, string> = {
   multi: '💡 點擊選取多個答案，完成後點擊下方送出',
   guess: '💡 圖片會隨時間變清晰，越快答對分數越高',
   order: '💡 由上而下排出正確順序，完成後點擊送出',
-  match: '💡 請點擊相對應的圖片進行配對' // 💡 更新文字
+  match: '💡 請點擊相對應的圖片進行配對' // 💡 更新：文字已修正
 };
 
 export default function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
-  // 💡 修正打包錯誤：移除了未使用的 authMode 狀態
   const [username, setUsername] = useState(''); const [password, setPassword] = useState('');
   const [quizPacks, setQuizPacks] = useState<any[]>([]);
   const [editingPack, setEditingPack] = useState<any>(null); 
@@ -401,6 +400,7 @@ export default function AdminApp() {
                 </div>
               )}
 
+              {/* 💡 修正打包錯誤：還原靜態的大螢幕題目顯示區塊，徹底拔除玩家點擊邏輯 */}
               {currentQuestion && !reviewData && !leaderboard && !podiumData && !isPreparing && (
                 <div className="question-transition">
                   <div style={{ position: 'relative', width: '100%', height: '28px', background: 'rgba(255,255,255,0.1)', borderRadius: '14px', overflow: 'hidden', marginBottom: '1.5vh', border: '1px solid rgba(255,215,0,0.5)' }}>
