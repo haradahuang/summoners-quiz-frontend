@@ -183,8 +183,9 @@ export default function PlayerApp() {
         </div>
       )}
 
+      {/* 💡 修改點：把 margin 10vh 改為 4vh，讓畫面重心上移 */}
       {isJoined && isPreparing && prepareData && (
-        <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '10vh auto', textAlign: 'center', padding: '3rem 2rem' }}>
+        <div className="game-panel question-transition" style={{ width: '95%', maxWidth: '600px', margin: '4vh auto 0', textAlign: 'center', padding: '3rem 2rem' }}>
            <h2 style={{ fontSize: '2rem', color: '#bdc3c7', marginBottom: '2rem', letterSpacing: '3px' }}>⚔️ 準備迎接挑戰</h2>
            <div style={{ fontSize: '3rem', fontWeight: '900', color: qTypeColors[prepareData.type] || '#fff', textShadow: '0 0 20px rgba(255,255,255,0.3)', marginBottom: '2rem' }}>{qTypeLabels[prepareData.type]}</div>
            <div style={{ fontSize: '5rem', color: '#f1c40f', textShadow: '0 4px 10px rgba(0,0,0,0.5)', fontWeight: 'bold', animation: 'pulse 1s infinite' }}>{prepareTimeLeft}</div>
@@ -206,6 +207,15 @@ export default function PlayerApp() {
           <div style={{ width: '100%', height: '8px', background: 'rgba(0,0,0,0.6)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
             <div style={{ height: '100%', background: timeLeft <= 5 ? '#e74c3c' : '#2ecc71', width: `${(timeLeft / (currentQuestion?.timeLimit || 15)) * 100}%`, transition: 'width 1s linear' }} />
           </div>
+
+          {/* 💡 修改點：當玩家已送出答案時，顯示友善的等待圖示，消除當機疑慮 */}
+          {hasAnswered && (
+            <div style={{ textAlign: 'center', padding: '3rem 0', animation: 'pulse 2s infinite' }}>
+               <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏳</div>
+               <h3 style={{ color: '#f1c40f', fontSize: '1.8rem', margin: '0 0 10px 0', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>答案已送出</h3>
+               <p style={{ color: '#bdc3c7', fontSize: '1.2rem', margin: 0 }}>等待其他召喚師作答中...</p>
+            </div>
+          )}
 
           {(currentQuestion?.type === 'guess' || currentQuestion?.type === 'img_choice') && !hasAnswered && (
              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
@@ -293,8 +303,13 @@ export default function PlayerApp() {
 
       {isJoined && reviewData && !leaderboard && !podiumData && (
         <div className="game-panel" style={{ width: '95%', maxWidth: '600px', margin: '0 auto', paddingBottom: '1rem', textAlign: 'center' }}>
-          <h2 style={{ color: answerResult?.isCorrect ? '#2ecc71' : '#ff4d4d', fontSize: '2.5rem', marginBottom: '10px', fontWeight: 'bold' }}>
-             {answerResult?.isCorrect ? `🟢 答對了！+ ${answerResult.earnedScore} 分` : '🔴 答錯了！+ 0 分'}
+          {/* 💡 修改點：強制斷行，並特別放大獲得分數，讓爽度爆表 */}
+          <h2 style={{ color: answerResult?.isCorrect ? '#2ecc71' : '#ff4d4d', fontSize: '2.2rem', marginBottom: '15px', fontWeight: 'bold', lineHeight: '1.4' }}>
+             {answerResult?.isCorrect ? (
+               <>🟢 答對了！<br/><span style={{ fontSize: '3rem' }}>+ {answerResult.earnedScore} 分</span></>
+             ) : (
+               <>🔴 答錯了！<br/><span style={{ fontSize: '3rem' }}>+ 0 分</span></>
+             )}
           </h2>
           <p style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '20px' }}>目前總積分：{myScore} 分</p>
           
