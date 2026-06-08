@@ -281,7 +281,8 @@ function PlayerApp() {
         <div className="game-panel login-panel" style={{ width: '95%', maxWidth: '400px', margin: '15vh auto 0', background: 'rgba(10, 15, 30, 0.85)' }}>
           <h2 style={{ color: '#FFD700', marginBottom: '1.5rem', fontSize: '2rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>進入競技場</h2> 
           <input type="text" placeholder="房間代碼 (PIN)" value={pin} onChange={(e) => setPin(e.target.value)} className="game-input" disabled={!!searchParams.get('pin')} />
-          <input type="text" placeholder="您的召喚師暱稱" value={username} onChange={(e) => setUsername(e.target.value)} className="game-input" />
+          {/* 💡 修正 BUG：加入 maxLength={8} 並防呆攔截惡意貼上 */}
+          <input type="text" placeholder="您的召喚師暱稱 (限8字)" value={username} maxLength={8} onChange={(e) => setUsername(e.target.value.slice(0, 8))} className="game-input" />
           <button className="btn-summon" onClick={handleJoinArena} style={{ background: 'linear-gradient(90deg, #f39c12, #e67e22)' }}>Ready!</button> 
         </div>
       )}
@@ -463,6 +464,7 @@ function AdminApp() {
   
   const [hostingPin, setHostingPin] = useState<string | null>(null);
   const [hostingUrl, setHostingUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false); // 💡 新增：複製連結狀態
   const [roomTitle, setRoomTitle] = useState(DEFAULT_TITLE);
   const [roomBg, setRoomBg] = useState(DEFAULT_BG);
   
@@ -484,6 +486,8 @@ function AdminApp() {
   const [matchPairs, setMatchPairs] = useState([{ tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }, { tName: '', tImg: '', bImg: '' }]);
 
   const playersMap = useRef(new Map<string, any>());
+  const tickCount = useRef(0); // 💡 新增：節流計時器，防抖動用
+  const [displayTags, setDisplayTags] = useState<string[]>([]); // 💡 新增：負責渲染的精簡名單
   const [dashboardStats, setDashboardStats] = useState({ total: 0, answered: 0 });
 
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -501,12 +505,23 @@ function AdminApp() {
     if (podiumData) { sfx.bgm.pause(); sfx.victory.currentTime = 0; sfx.victory.play().catch(()=>{}); sfx.cheer.currentTime = 0; sfx.cheer.play().catch(()=>{}); }
   }, [hostingPin, podiumData]);
 
+  // 💡 修正 BUG：重新打造節流器，每 2 秒才隨機抽換畫面上的名單，防止破版與當機閃爍
   useEffect(() => {
     if (!hostingPin) return;
     const interval = setInterval(() => {
       let total = playersMap.current.size; let answered = 0;
+      const allNames = Array.from(playersMap.current.keys());
       playersMap.current.forEach(p => { if (p.hasAnswered) answered++; });
       setDashboardStats({ total, answered });
+
+      if (allNames.length <= 16) {
+         setDisplayTags(allNames); // 未滿 16 人直接顯示
+      } else {
+         tickCount.current++;
+         if (tickCount.current % 4 === 0) { // 每 4 個 tick (2秒) 洗牌一次，保持動態感但不會閃爍
+            setDisplayTags([...allNames].sort(() => 0.5 - Math.random()).slice(0, 16));
+         }
+      }
     }, 500);
     return () => clearInterval(interval);
   }, [hostingPin]);
@@ -754,7 +769,6 @@ function AdminApp() {
 
   const handleDeleteQuestion = (idToRemove: number) => { setEditingPack({ ...editingPack, questions: editingPack.questions.filter((q: any) => q.id !== idToRemove) }); };
 
-  // 💡 修正 BUG：清空 editingPack 狀態，讓畫面回到儀表板而非編輯器
   const handleReturnToDashboard = () => {
     if (channel) channel.unsubscribe();
     sfx.victory.pause(); sfx.victory.currentTime = 0; sfx.cheer.pause(); sfx.cheer.currentTime = 0; sfx.bgm.pause(); sfx.bgm.currentTime = 0;
@@ -765,7 +779,7 @@ function AdminApp() {
     setLeaderboard(null); 
     setReviewData(null); 
     setPodiumData(null);
-    setEditingPack(null); // 💡 清除編輯狀態，確保回歸列表
+    setEditingPack(null); 
     setRoomTitle(DEFAULT_TITLE); 
     setRoomBg(DEFAULT_BG); 
     fetchQuizzes(adminUser!);
@@ -774,9 +788,6 @@ function AdminApp() {
   let displayTitle = '創作者儀表板'; let displayBg = DEFAULT_BG;
   if (hostingPin) { displayTitle = roomTitle; displayBg = roomBg; }
   else if (editingPack) { displayTitle = editingPack.title || '編輯題庫包'; displayBg = editingPack.backgroundImg || DEFAULT_BG; }
-
-  const currentPlayersArray = Array.from(playersMap.current.values());
-  const maxDisplayTags = 100; const displayedPlayerTags = currentPlayersArray.slice(0, maxDisplayTags);
 
   if (!adminUser) return (
     <PageLayout title="" bgImg={DEFAULT_BG}>
@@ -800,18 +811,32 @@ function AdminApp() {
                  <h2 style={{ color: '#e74c3c', fontSize: '2.5rem', margin: 0 }}>👑 主持人控場中心</h2>
               </div>
               <h3 style={{ color: '#f1c40f', fontSize: '4.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.5)', margin: '1vh 0' }}>房號: {hostingPin}</h3>
-              <p style={{ color: '#2ecc71', margin: '1vh 0', fontSize: '1.6rem' }}>玩家加入連結: <br/><span style={{color: '#3498db', textDecoration: 'underline', fontSize: '2rem'}}>{hostingUrl}</span></p>
               
-              {/* 💡 插入自動生成的 QR Code */}
+              {/* 💡 修正 BUG：隱藏落落長的網址，改為帥氣的複製按鈕 */}
+              <div style={{ margin: '2vh 0' }}>
+                <button className="btn-copy" onClick={() => {
+                   if(hostingUrl) {
+                      navigator.clipboard.writeText(hostingUrl);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                   }
+                }}>
+                   {copied ? '✅ 連結已複製！' : '🔗 點擊複製遊戲連結'}
+                </button>
+              </div>
+              
               <div style={{ background: '#fff', padding: '10px', borderRadius: '10px', display: 'inline-block', margin: '1vh 0' }}>
                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(hostingUrl || '')}`} alt="Game QR Code" style={{ width: '150px', height: '150px', display: 'block' }} />
               </div>
 
               <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '1vh 0' }}>目前進場: <span style={{ color: '#f1c40f', fontSize: '2.5rem' }}>{dashboardStats.total}</span> 人</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', margin: '3vh 0', maxHeight: '20vh', overflowY: 'auto', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px' }}>
-                {displayedPlayerTags.map((p, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.15)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)' }}>{p.username}</span>)}
-                {dashboardStats.total > maxDisplayTags && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#bdc3c7', fontStyle: 'italic' }}>...及其他 {dashboardStats.total - maxDisplayTags} 人</span>}
+              
+              {/* 💡 修正 BUG：強制高度約束，最多兩行，且使用 setDisplayTags 節流器動態替換名單 */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', margin: '3vh 0', minHeight: '80px', padding: '15px', background: 'rgba(0,0,0,0.3)', borderRadius: '15px' }}>
+                {displayTags.map((pName, i) => <span key={i} style={{ background: 'rgba(255,215,0,0.15)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#FFD700', border: '1px solid rgba(255,215,0,0.3)', transition: 'all 0.5s ease', animation: 'bounceIn 0.3s' }}>{pName}</span>)}
+                {dashboardStats.total > 16 && <span style={{ background: 'rgba(255,255,255,0.1)', padding: '8px 15px', borderRadius: '8px', fontSize: '1.2rem', color: '#bdc3c7', fontStyle: 'italic' }}>...及其他 {dashboardStats.total - 16} 名召喚師</span>}
               </div>
+              
               <button className="btn-summon" onClick={sendNextQuestion} style={{ fontSize: '2rem', padding: '15px 60px', background: 'linear-gradient(90deg, #2ecc71, #27ae60)' }}>▶️ 正式開始遊戲</button>
             </div>
           ) : (
@@ -1041,7 +1066,11 @@ export default function App() {
         .admin-mega-panel { max-width: 1400px !important; width: 95% !important; }
         select.game-input { appearance: auto !important; -webkit-appearance: auto !important; -moz-appearance: auto !important; background-color: rgba(0, 0, 0, 0.8) !important; color: #FFD700 !important; cursor: pointer; }
         select.game-input option { background-color: #111 !important; color: #FFF !important; }
+        .btn-copy { background: rgba(52, 152, 219, 0.15); border: 2px solid #3498db; color: #3498db; padding: 10px 25px; border-radius: 10px; font-size: 1.4rem; font-weight: bold; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); outline: none; }
+        .btn-copy:hover { background: rgba(52, 152, 219, 0.8); color: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.6); transform: translateY(-2px); }
+        .btn-copy:active { transform: translateY(1px); }
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes bounceIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
       <BrowserRouter><Routes><Route path="/" element={<PlayerApp />} /><Route path="/admin" element={<AdminApp />} /></Routes></BrowserRouter>
     </ErrorBoundary>
