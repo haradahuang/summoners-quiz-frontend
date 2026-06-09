@@ -12,7 +12,6 @@ export default function App() {
         html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; min-height: 100vh !important; overflow-x: hidden !important; background-color: #050505 !important; }
         .page-layout-wrapper { width: 100%; min-height: 100vh; background-size: cover, cover; background-position: center, center; background-repeat: no-repeat, no-repeat; background-attachment: fixed, fixed; display: flex; flex-direction: column; align-items: center; padding-top: 2vh; padding-bottom: 2vh; font-family: "Noto Sans TC", sans-serif; transition: background-image 0.5s ease-in-out; background-color: #050505; }
         
-        /* 💡 這裡已經修正了手機版過高的問題 */
         @media (max-width: 768px) { 
           .page-layout-wrapper { background-size: cover, contain !important; background-position: center, top center !important; } 
           .title-wrapper { margin-top: 10vh !important; } 
