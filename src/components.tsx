@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DEFAULT_TITLE, DEFAULT_BG } from './config';
 
-// ==========================================
-// 🛡️ 錯誤攔截組件
-// ==========================================
 export class ErrorBoundary extends React.Component<any, { hasError: boolean, errorMsg: string }> {
   constructor(props: any) { super(props); this.state = { hasError: false, errorMsg: '' }; }
   static getDerivedStateFromError(error: any) { return { hasError: true, errorMsg: error.toString() }; }
@@ -13,9 +10,6 @@ export class ErrorBoundary extends React.Component<any, { hasError: boolean, err
   }
 }
 
-// ==========================================
-// 🎨 全域大佈局組件
-// ==========================================
 export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?: string, children: React.ReactNode }) => {
   const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
@@ -28,7 +22,6 @@ export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?:
     <div className="page-layout-wrapper" style={{ backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient }}>
       {displayTitle !== "" && bgImg !== 'LOADING' && (
         <div className="title-wrapper" style={{ textAlign: 'center', marginBottom: '2vh' }}>
-          {/* 💡 修改點 1：拔除難看的外框描邊，改用雙層深陰影與更粗的純白字體，保證最高清晰度 */}
           <h1 style={{ 
             fontSize: 'clamp(2.2rem, 6vw, 4rem)', 
             margin: 0, 
@@ -50,9 +43,6 @@ export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?:
   );
 };
 
-// ==========================================
-// 🏆 排行榜組件
-// ==========================================
 let globalLastLeaderboard: any[] = [];
 export const LeaderboardView = ({ data }: { data: any[] }) => {
   const top5Data = data.slice(0, 5);
@@ -67,7 +57,7 @@ export const LeaderboardView = ({ data }: { data: any[] }) => {
   useEffect(() => {
     const timer = setTimeout(() => { setDisplayRanks(top5Data.map((player, idx) => ({ ...player, currentIdx: idx, opacity: 1 }))); globalLastLeaderboard = top5Data; }, 50);
     return () => clearTimeout(timer);
-  }, [data]); // eslint-disable-line
+  }, [data]);
 
   return (
     <div style={{ position: 'relative', height: `${top5Data.length * 60}px`, transition: 'height 0.3s', marginBottom: '10px' }}>
