@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase, sfx, unlockAudio, topColors, qTypeLabels, qTypeColors, DEFAULT_TITLE, DEFAULT_BG } from '../config';
 import { PageLayout, LeaderboardView } from '../components';
 
-// 💡 集中管理各題型的作答提示 (大螢幕同步顯示)
 const qTypeInstructions: Record<string, string> = {
   choice: '💡 準備好手速，點擊最快最正確的選項',
   img_choice: '💡 仔細看圖，選出正確答案',
@@ -10,12 +9,13 @@ const qTypeInstructions: Record<string, string> = {
   multi: '💡 點擊選取多個答案，完成後點擊下方送出',
   guess: '💡 圖片會隨時間變清晰，越快答對分數越高',
   order: '💡 由上而下排出正確順序，完成後點擊送出',
-  match: '💡 請點擊相對應的圖片進行配對' // 💡 更新：文字已精準校正
+  match: '💡 請點擊相對應的圖片進行配對'
 };
 
 export default function AdminApp() {
   const [adminUser, setAdminUser] = useState<string | null>(null);
-  const [username, setUsername] = useState(''); const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(''); 
+  const [password, setPassword] = useState('');
   const [quizPacks, setQuizPacks] = useState<any[]>([]);
   const [editingPack, setEditingPack] = useState<any>(null); 
   
@@ -33,8 +33,10 @@ export default function AdminApp() {
   const [qType, setQType] = useState<'choice' | 'match' | 'tf' | 'multi' | 'guess' | 'order' | 'img_choice'>('choice');
   const [newQText, setNewQText] = useState('');
   const [newTime, setNewTime] = useState(10);
-  const [newOptA, setNewOptA] = useState(''); const [newOptB, setNewOptB] = useState('');
-  const [newOptC, setNewOptC] = useState(''); const [newOptD, setNewOptD] = useState('');
+  const [newOptA, setNewOptA] = useState(''); 
+  const [newOptB, setNewOptB] = useState('');
+  const [newOptC, setNewOptC] = useState(''); 
+  const [newOptD, setNewOptD] = useState('');
   const [newAns, setNewAns] = useState('A');
   const [newTfAns, setNewTfAns] = useState<'O' | 'X'>('O');
   const [newMultiAns, setNewMultiAns] = useState<string[]>([]);
@@ -609,7 +611,6 @@ export default function AdminApp() {
             ))}
           </div>
 
-          {/* 💡 完美還原：編輯題目的完整後台選項與圖片上傳 UI 設定區塊 */}
           <div id="question-edit-form" style={{ background: editingQuestionId ? 'rgba(243, 156, 18, 0.15)' : 'rgba(0,0,0,0.6)', padding: '2rem', borderRadius: '15px', marginTop: '2.5rem', border: editingQuestionId ? '2px solid #f39c12' : '1px dashed #7f8c8d' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
               <h3 style={{ color: editingQuestionId ? '#f39c12' : '#2ecc71', margin: 0 }}>{editingQuestionId ? '✏️ 修改當前題目' : '➕ 新增一題'}</h3>
@@ -621,17 +622,15 @@ export default function AdminApp() {
             </div>
             <input type="text" placeholder="請輸入完整題目敘述文字" value={newQText} onChange={(e) => setNewQText(e.target.value)} className="game-input" style={{ marginBottom: '15px' }} />
 
-            {/* 1. 標準四選一 / 多選 / 猜圖 / 排序題型欄位 */}
             {['choice', 'multi', 'guess', 'order', 'img_choice'].includes(qType) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <input type="text" placeholder="選項 A 文字" value={newOptA} onChange={(e) => setNewOptA(e.target.value)} className="game-input" />
                   <input type="text" placeholder="選項 B 文字" value={newOptB} onChange={(e) => setNewOptB(e.target.value)} className="game-input" />
-                  <input type="text" placeholder="選項 C 文字" value={newOptC} onChange={(e) => setNewOptC(value => e.target.value)} className="game-input" />
-                  <input type="text" placeholder="選項 D 文字" value={newOptD} onChange={(e) => setNewOptD(value => e.target.value)} className="game-input" />
+                  <input type="text" placeholder="選項 C 文字" value={newOptC} onChange={(e) => setNewOptC(e.target.value)} className="game-input" />
+                  <input type="text" placeholder="選項 D 文字" value={newOptD} onChange={(e) => setNewOptD(e.target.value)} className="game-input" />
                 </div>
 
-                {/* 2. 只有單選題 / 猜圖題 / 看圖單選需要指定單一正解 */}
                 {['choice', 'guess', 'img_choice'].includes(qType) && (
                   <div style={{ marginTop: '10px' }}>
                     <span style={{ color: '#bdc3c7', marginRight: '10px', fontWeight: 'bold' }}>🎯 設定正確解答：</span>
@@ -639,7 +638,6 @@ export default function AdminApp() {
                   </div>
                 )}
 
-                {/* 3. 多選題專屬的 Checkbox 勾選編輯器 */}
                 {qType === 'multi' && (
                   <div style={{ marginTop: '10px' }}>
                     <span style={{ color: '#bdc3c7', marginRight: '15px', fontWeight: 'bold' }}>🎯 勾選正確解答 (可多選)：</span>
@@ -651,7 +649,6 @@ export default function AdminApp() {
                   </div>
                 )}
 
-                {/* 4. 漸進猜圖題 / 看圖單選：上傳題目模糊圖片 */}
                 {['guess', 'img_choice'].includes(qType) && (
                   <div style={{ marginTop: '15px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                     <div>
@@ -661,7 +658,6 @@ export default function AdminApp() {
                         <input type="file" accept="image/*" onChange={handleGuessImageUpload} style={{ display: 'none' }} />
                       </label>
                     </div>
-                    {/* 5. 看圖單選專屬：上傳答案揭曉清晰圖 */}
                     {qType === 'img_choice' && (
                       <div>
                         <p style={{ color: '#2ecc71', fontSize: '0.9rem', marginBottom: '5px', fontWeight: 'bold' }}>🖼️ 答案公佈清晰圖片 (選填)</p>
@@ -676,7 +672,6 @@ export default function AdminApp() {
               </div>
             )}
 
-            {/* 6. 是非題 (O/X) 專屬編輯欄位 */}
             {qType === 'tf' && (
               <div style={{ marginTop: '10px' }}>
                 <span style={{ color: '#bdc3c7', marginRight: '10px', fontWeight: 'bold' }}>🎯 設定正確解答：</span>
@@ -684,7 +679,6 @@ export default function AdminApp() {
               </div>
             )}
 
-            {/* 7. 圖片配對題 (4組一對一) 專屬編輯欄位 */}
             {qType === 'match' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
                 <p style={{ color: '#e67e22', fontSize: '0.9rem', margin: 0, fontWeight: 'bold' }}>🔗 請設定 4 組絕對對應的名稱與配對圖片 (每組限 300KB 以內)：</p>
