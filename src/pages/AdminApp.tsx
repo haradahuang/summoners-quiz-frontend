@@ -247,19 +247,19 @@ export default function AdminApp() {
 
   const handleImageUpload = (index: number, field: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
+    if (file.size > 300 * 1024) return alert('圖片太大！限 300KB 以內。');
     const reader = new FileReader(); reader.onload = (event) => { const newPairs = [...matchPairs]; newPairs[index] = { ...newPairs[index], [field]: event.target?.result as string }; setMatchPairs(newPairs); }; reader.readAsDataURL(file);
   };
 
   const handleGuessImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
+    if (file.size > 300 * 1024) return alert('圖片太大！限 300KB 以內。');
     const reader = new FileReader(); reader.onload = (event) => { setNewGuessImg(event.target?.result as string); }; reader.readAsDataURL(file);
   };
   
   const handleAnswerImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 300 * 1024) return alert(`圖片太大！限 300KB 以內。`);
+    if (file.size > 300 * 1024) return alert('圖片太大！限 300KB 以內。');
     const reader = new FileReader(); reader.onload = (event) => { setNewAnswerImg(event.target?.result as string); }; reader.readAsDataURL(file);
   };
 
