@@ -14,9 +14,10 @@ export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?:
   const finalBg = bgImg === 'LOADING' ? null : ((bgImg && bgImg.trim() !== '') ? bgImg : DEFAULT_BG);
   const displayTitle = title !== undefined ? title : DEFAULT_TITLE; 
   
+  // 💡 修正：拔除不必要的反引號，改用標準單引號確保編譯安全
   const gradient = finalBg 
-    ? `linear-gradient(to bottom, rgba(10, 15, 30, 0.75) 0%, rgba(5, 5, 10, 0.98) 100%)`
-    : `radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)`;
+    ? 'linear-gradient(to bottom, rgba(10, 15, 30, 0.75) 0%, rgba(5, 5, 10, 0.98) 100%)'
+    : 'radial-gradient(circle at center, rgba(15,18,28,1) 0%, rgba(5,5,10,1) 100%)';
 
   return (
     <div className="page-layout-wrapper" style={{ backgroundImage: finalBg ? `${gradient}, url("${finalBg}")` : gradient }}>
@@ -29,7 +30,7 @@ export const PageLayout = ({ title, bgImg, children }: { title?: string, bgImg?:
             letterSpacing: '2px', 
             color: '#FFFFFF', 
             fontWeight: '900',
-            fontFamily: '"Noto Sans TC", "Microsoft JhengHei", sans-serif',
+            fontFamily: 'Noto Sans TC, Microsoft JhengHei, sans-serif',
             textShadow: '0px 4px 12px rgba(0,0,0,0.95), 0px 2px 4px rgba(0,0,0,0.8)'
           }}>
             {displayTitle}
