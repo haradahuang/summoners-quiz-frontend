@@ -542,50 +542,102 @@ export default function AdminApp() {
                 </div>
               )}
 {podiumData && (
-                <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
-                  <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
+                <div style={{ animation: 'bounceIn 1s ease', position: 'relative', width: '100%' }}>
+                  {/* 💡 煙火特效已移除 */}
+                  
                   <div className="podium-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <h2 style={{ color: '#FFD700', fontSize: '4rem', marginBottom: '2vh', textShadow: '0 0 20px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
+                    <h2 style={{ color: '#FFD700', fontSize: 'clamp(2rem, 5vw, 3.5rem)', marginBottom: '3vh', textShadow: '0 0 20px rgba(255,215,0,0.8)', fontWeight: '900' }}>🏆 傳奇誕生 🏆</h2>
                     
-                    {/* 💡 修正排版：新的整齊有序列表容器 */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '20px', background: 'rgba(0,0,0,0.5)', borderRadius: '20px', border: '1px solid rgba(255,215,0,0.3)', width: '90%', maxWidth: '500px', margin: '0 auto', textAlign: 'left' }}>
+                    {/* 🏆 極簡化名次列表容器 */}
+                    <div style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: '10px', 
+                      width: '95%', 
+                      maxWidth: '550px', 
+                      margin: '0 auto',
+                      background: 'rgba(0,0,0,0.3)',
+                      padding: '20px',
+                      borderRadius: '24px',
+                      border: '1px solid rgba(255,255,255,0.1)'
+                    }}>
                       {podiumData.map((p, idx) => {
-                        const rank = idx + 1; // 使用索引作為名次，修正錯誤的名次映射。這也將處理分數並列的情況。
+                        const rank = idx + 1;
                         const isTop3 = rank <= 3;
-                        const rankColors = ['#FFD700', '#bdc3c7', '#e67e22'];
-                        const rankColor = isTop3 ? rankColors[rank - 1] : '#bdc3c7';
-                        const fontSizeName = isTop3 ? '2.2rem' : '1.6rem';
-                        const fontSizeScore = isTop3 ? '1.8rem' : '1.4rem';
-                        const paddingItem = isTop3 ? '15px' : '10px';
-                        const backgroundItem = isTop3 ? `rgba(255,215,0,0.15)` : 'rgba(255,255,255,0.05)';
-                        const borderLeftItem = isTop3 ? `8px solid ${rankColor}` : `5px solid #bdc3c7`;
-                        const shadowItem = isTop3 ? `0 4px 10px rgba(255,215,0,0.3)` : '0 2px 5px rgba(0,0,0,0.3)';
-
-                        // 💡 修正名次徽章：創建統一的名次徽章組件
-                        const RankBadge = () => {
-                          const sizeBadge = isTop3 ? '60px' : '45px';
-                          const fontSizeBadge = isTop3 ? '2.8rem' : '2rem';
-                          const borderBadge = isTop3 ? `3px solid #FFFFFF` : `2px solid #FFFFFF`;
-                          const shadowBadge = isTop3 ? `0 4px 10px rgba(255,215,0,0.5)` : '0 2px 5px rgba(0,0,0,0.5)';
-                          // 準確映射圖標，修正名次錯誤
-                          const iconBadge = isTop3 ? ['🥇', '🥈', '🥉'][rank - 1] : ['4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][rank - 4];
-                          return (
-                            <div style={{ width: sizeBadge, height: sizeBadge, borderRadius: '50%', background: rankColor, border: borderBadge, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#FFFFFF', fontSize: fontSizeBadge, fontWeight: '900', boxShadow: shadowBadge, flexShrink: 0 }}>{iconBadge}</div>
-                          );
-                        }
-
+                        
+                        // 準確映射名次圖標
+                        const medalIcons = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+                        
                         return (
-                          // 💡 修正排版：新的水平彈性佈局項目
-                          <div key={p.username} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '20px', padding: paddingItem, background: backgroundItem, borderLeft: borderLeftItem, borderRadius: '15px', boxShadow: shadowItem }}>
-                            <RankBadge />
-                            <span style={{ flex: 1, fontSize: fontSizeName, color: '#FFFFFF', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{p.username}</span>
-                            <span style={{ fontSize: fontSizeScore, color: isTop3 ? '#FFD700' : '#bdc3c7', fontWeight: 'bold', textAlign: 'right' }}>({p.score}分)</span>
+                          <div key={p.username} style={{ 
+                            display: 'flex', 
+                            flexDirection: 'row', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between', 
+                            padding: isTop3 ? '12px 20px' : '8px 20px', 
+                            background: isTop3 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)', 
+                            borderRadius: '16px',
+                            border: isTop3 ? `1px solid ${rank === 1 ? '#FFD700' : rank === 2 ? '#bdc3c7' : '#e67e22'}` : '1px solid transparent',
+                            transition: 'all 0.3s ease'
+                          }}>
+                            {/* 💡 修正：移除圓圈背景，直接顯示 Emoji 圖標 */}
+                            <div style={{ 
+                              fontSize: isTop3 ? '2.5rem' : '1.8rem', 
+                              marginRight: '15px', 
+                              width: '45px', 
+                              textAlign: 'center',
+                              flexShrink: 0
+                            }}>
+                              {medalIcons[idx]}
+                            </div>
+
+                            {/* 召喚師暱稱 */}
+                            <span style={{ 
+                              flex: 1, 
+                              fontSize: isTop3 ? '1.8rem' : '1.3rem', 
+                              color: '#FFFFFF', 
+                              fontWeight: isTop3 ? '900' : 'bold',
+                              textAlign: 'left',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {p.username}
+                            </span>
+
+                            {/* 分數顯示 */}
+                            <span style={{ 
+                              fontSize: isTop3 ? '1.6rem' : '1.2rem', 
+                              color: isTop3 ? '#FFD700' : '#bdc3c7', 
+                              fontWeight: '900',
+                              marginLeft: '10px',
+                              fontFamily: 'monospace'
+                            }}>
+                              ({p.score}分)
+                            </span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                  <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: 'linear-gradient(90deg, #3498db, #2980b9)', marginTop: '4vh', position: 'relative', zIndex: 10, fontSize: '1.5rem', padding: '15px 30px' }}>🏠 結束並返回大廳</button>
+
+                  {/* 返回大廳按鈕 */}
+                  <button 
+                    className="btn-summon" 
+                    onClick={handleReturnToDashboard} 
+                    style={{ 
+                      background: 'linear-gradient(90deg, #3498db, #2980b9)', 
+                      marginTop: '4vh', 
+                      position: 'relative', 
+                      zIndex: 10, 
+                      fontSize: '1.4rem', 
+                      padding: '12px 40px',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
+                    }}
+                  >
+                    🏠 結束並返回大廳
+                  </button>
                 </div>
               )}
 
