@@ -541,32 +541,54 @@ export default function AdminApp() {
                   )}
                 </div>
               )}
-
-              {podiumData && (
+{podiumData && (
                 <div style={{ animation: 'bounceIn 1s ease', position: 'relative' }}>
                   <div className="firework fw-1">🎆</div><div className="firework fw-2">🎇</div>
                   <div className="podium-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <h2 style={{ color: '#FFD700', fontSize: '4rem', marginBottom: '2vh', textShadow: '0 0 20px rgba(255,215,0,0.8)' }}>🏆 傳奇誕生 🏆</h2>
-                    {podiumData.map((p, idx) => {
-                      if (idx === 0) {
+                    
+                    {/* 💡 修正排版：新的整齊有序列表容器 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '20px', background: 'rgba(0,0,0,0.5)', borderRadius: '20px', border: '1px solid rgba(255,215,0,0.3)', width: '90%', maxWidth: '500px', margin: '0 auto', textAlign: 'left' }}>
+                      {podiumData.map((p, idx) => {
+                        const rank = idx + 1; // 使用索引作為名次，修正錯誤的名次映射。這也將處理分數並列的情況。
+                        const isTop3 = rank <= 3;
+                        const rankColors = ['#FFD700', '#bdc3c7', '#e67e22'];
+                        const rankColor = isTop3 ? rankColors[rank - 1] : '#bdc3c7';
+                        const fontSizeName = isTop3 ? '2.2rem' : '1.6rem';
+                        const fontSizeScore = isTop3 ? '1.8rem' : '1.4rem';
+                        const paddingItem = isTop3 ? '15px' : '10px';
+                        const backgroundItem = isTop3 ? `rgba(255,215,0,0.15)` : 'rgba(255,255,255,0.05)';
+                        const borderLeftItem = isTop3 ? `8px solid ${rankColor}` : `5px solid #bdc3c7`;
+                        const shadowItem = isTop3 ? `0 4px 10px rgba(255,215,0,0.3)` : '0 2px 5px rgba(0,0,0,0.3)';
+
+                        // 💡 修正名次徽章：創建統一的名次徽章組件
+                        const RankBadge = () => {
+                          const sizeBadge = isTop3 ? '60px' : '45px';
+                          const fontSizeBadge = isTop3 ? '2.8rem' : '2rem';
+                          const borderBadge = isTop3 ? `3px solid #FFFFFF` : `2px solid #FFFFFF`;
+                          const shadowBadge = isTop3 ? `0 4px 10px rgba(255,215,0,0.5)` : '0 2px 5px rgba(0,0,0,0.5)';
+                          // 準確映射圖標，修正名次錯誤
+                          const iconBadge = isTop3 ? ['🥇', '🥈', '🥉'][rank - 1] : ['4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][rank - 4];
+                          return (
+                            <div style={{ width: sizeBadge, height: sizeBadge, borderRadius: '50%', background: rankColor, border: borderBadge, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#FFFFFF', fontSize: fontSizeBadge, fontWeight: '900', boxShadow: shadowBadge, flexShrink: 0 }}>{iconBadge}</div>
+                          );
+                        }
+
                         return (
-                          <h3 key={p.username} style={{color: '#f1c40f', fontSize: '3.5rem', textShadow: '0 4px 8px rgba(0,0,0,0.8)', margin: '1.5vh 0'}}>
-                            🥇 {p.username} <span style={{fontSize:'1.8rem'}}>({p.score}分)</span>
-                          </h3>
+                          // 💡 修正排版：新的水平彈性佈局項目
+                          <div key={p.username} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '20px', padding: paddingItem, background: backgroundItem, borderLeft: borderLeftItem, borderRadius: '15px', boxShadow: shadowItem }}>
+                            <RankBadge />
+                            <span style={{ flex: 1, fontSize: fontSizeName, color: '#FFFFFF', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{p.username}</span>
+                            <span style={{ fontSize: fontSizeScore, color: isTop3 ? '#FFD700' : '#bdc3c7', fontWeight: 'bold', textAlign: 'right' }}>({p.score}分)</span>
+                          </div>
                         );
-                      }
-                      const icons = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-                      const color = idx === 1 ? '#bdc3c7' : idx === 2 ? '#e67e22' : '#ecf0f1';
-                      return (
-                        <h4 key={p.username} style={{color, fontSize: '2rem', textShadow: '0 2px 4px rgba(0,0,0,0.8)', margin: '0.8vh 0', fontWeight: 'bold'}}>
-                          {icons[idx]} {p.username} <span style={{fontSize:'1.2rem'}}>({p.score}分)</span>
-                        </h4>
-                      );
-                    })}
+                      })}
+                    </div>
                   </div>
                   <button className="btn-summon" onClick={handleReturnToDashboard} style={{ background: 'linear-gradient(90deg, #3498db, #2980b9)', marginTop: '4vh', position: 'relative', zIndex: 10, fontSize: '1.5rem', padding: '15px 30px' }}>🏠 結束並返回大廳</button>
                 </div>
               )}
+
             </>
           )}
         </div>
